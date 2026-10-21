@@ -1,0 +1,12 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+# Firebase: mỗi người tự tải file này từ Firebase Console, không đẩy lên GitHub
+app/google-services.json
