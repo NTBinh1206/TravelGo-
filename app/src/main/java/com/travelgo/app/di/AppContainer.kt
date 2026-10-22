@@ -1,5 +1,6 @@
 package com.travelgo.app.di
 
+import com.travelgo.app.data.auth.AuthRepository
 import com.travelgo.app.data.location.InMemoryLocationProvider
 import com.travelgo.app.data.location.LocationProvider
 import com.travelgo.app.data.place.FakePlaceRepository
@@ -13,4 +14,5 @@ import com.travelgo.app.data.place.PlaceRepository
 object AppContainer {
     val locationProvider: LocationProvider = InMemoryLocationProvider()
     val placeRepository: PlaceRepository = FakePlaceRepository()
+    val authRepository: AuthRepository by lazy { AuthRepository() }
 }

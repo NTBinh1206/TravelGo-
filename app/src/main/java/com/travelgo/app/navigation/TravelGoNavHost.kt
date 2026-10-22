@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -15,6 +16,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.travelgo.app.components.BottomTabBar
+import com.travelgo.app.di.AppContainer
 import com.travelgo.app.ui.auth.LocationPermissionScreen
 import com.travelgo.app.ui.auth.LoginScreen
 import com.travelgo.app.ui.explore.ExploreScreen
@@ -30,6 +32,10 @@ fun TravelGoApp() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showTabs = currentRoute != null && currentRoute in Routes.tabRoutes
+    // Đã đăng nhập từ lần trước thì vào thẳng Trang chủ.
+    val startDestination = remember {
+        if (AppContainer.authRepository.currentUser != null) Routes.HOME else Routes.LOGIN
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -46,7 +52,7 @@ fun TravelGoApp() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.LOGIN,
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding),
         ) {
             composable(Routes.LOGIN) {
