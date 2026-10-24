@@ -16,7 +16,11 @@ import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.tasks.Task
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.facebook.AccessToken
+import com.facebook.login.LoginManager
+import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.travelgo.app.R
@@ -40,7 +44,7 @@ class SignInCancelledException : Exception()
  * Đăng nhập bằng Firebase Auth (Người 1).
  *  - Google: Credential Manager lấy ID token, rồi đổi sang tài khoản Firebase
  *  - Khách: đăng nhập ẩn danh
- *  - TODO(Người 1): Facebook
+ *  - Facebook: Facebook Login SDK lấy access token, rồi đổi sang tài khoản Firebase
  */
 class AuthRepository(private val auth: FirebaseAuth = FirebaseAuth.getInstance()) {
 
@@ -104,6 +108,19 @@ class AuthRepository(private val auth: FirebaseAuth = FirebaseAuth.getInstance()
         user.toAppUser()
     }
 
+    /** Đổi access token của Facebook thành tài khoản Firebase. */
+    suspend fun signInWithFacebook(token: AccessToken): Result<AppUser> = runCatching {
+        val credential = FacebookAuthProvider.getCredential(token.token)
+        val result = try {
+            auth.signInWithCredential(credential).awaitResult()
+        } catch (e: Exception) {
+            LoginManager.getInstance().logOut() // tránh giữ phiên Facebook khi Firebase từ chối
+            throw e
+        }
+        val user = result.user ?: error("Không lấy được tài khoản")
+        user.toAppUser()
+    }
+
     suspend fun signInAsGuest(): Result<AppUser> = runCatching {
         val user = auth.signInAnonymously().awaitResult().user ?: error("Không tạo được tài khoản khách")
         user.toAppUser()
@@ -111,12 +128,15 @@ class AuthRepository(private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
     suspend fun signOut(context: Context) {
         auth.signOut()
+        runCatching { LoginManager.getInstance().logOut() }
         runCatching { CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest()) }
     }
 
     /** Câu báo lỗi dễ hiểu cho người dùng; null nếu họ tự huỷ. */
     fun errorMessage(e: Throwable): String? = when (e) {
         is SignInCancelledException -> null
+        is FirebaseAuthUserCollisionException ->
+            "Email này đã dùng để đăng nhập bằng cách khác (ví dụ Google). Hãy đăng nhập bằng cách đó."
         is ApiException -> when (e.statusCode) {
             10 -> "Sai cấu hình Firebase (SHA-1 hoặc google-services.json chưa khớp). [mã 10]"
             7 -> "Không có kết nối mạng. [mã 7]"

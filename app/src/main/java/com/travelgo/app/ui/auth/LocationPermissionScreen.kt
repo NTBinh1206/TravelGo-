@@ -1,8 +1,5 @@
 package com.travelgo.app.ui.auth
 
-import android.Manifest
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -49,17 +46,13 @@ import com.travelgo.app.ui.theme.Navy
 
 /**
  * 02 · Cho phép truy cập vị trí (Người 1).
- * TODO(Người 1):
- *  - Khi được cấp quyền: lấy GPS bằng FusedLocationProviderClient,
- *    gọi AppContainer.locationProvider.updateLocation(...)
- *  - Khi bị từ chối: cho người dùng tự chọn tỉnh thành hoặc nhập địa chỉ
+ * - "Cho phép": xin quyền → bật GPS → lấy vị trí thật → sang Trang chủ.
+ * - Bị từ chối / GPS tắt / "Để sau": chuyển sang màn tự chọn tỉnh thành.
  */
 @Composable
-fun LocationPermissionScreen(onDone: (granted: Boolean) -> Unit) {
-    val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions(),
-    ) { result ->
-        onDone(result.values.any { it })
+fun LocationPermissionScreen(onLocated: () -> Unit, onChooseManually: () -> Unit) {
+    val locator = rememberGpsLocator { result ->
+        if (result is GpsResult.Success) onLocated() else onChooseManually()
     }
 
     Column(Modifier.fillMaxSize().background(Background)) {
@@ -119,16 +112,13 @@ fun LocationPermissionScreen(onDone: (granted: Boolean) -> Unit) {
             }
             Spacer(Modifier.weight(1f))
             PrimaryButton(
-                text = "Cho phép",
+                text = if (locator.isLoading) "Đang lấy vị trí…" else "Cho phép",
                 icon = Icons.Outlined.NearMe,
-                onClick = {
-                    launcher.launch(
-                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
-                    )
-                },
+                enabled = !locator.isLoading,
+                onClick = { locator.start() },
             )
             Spacer(Modifier.height(12.dp))
-            SecondaryButton(text = "Để sau", onClick = { onDone(false) })
+            SecondaryButton(text = "Để sau", onClick = onChooseManually)
             Spacer(Modifier.navigationBarsPadding().height(14.dp))
         }
     }

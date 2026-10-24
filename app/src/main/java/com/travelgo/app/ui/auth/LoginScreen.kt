@@ -26,6 +26,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +51,11 @@ import androidx.compose.ui.unit.sp
 import com.travelgo.app.R
 import com.travelgo.app.components.softShadow
 import androidx.credentials.exceptions.NoCredentialException
+import com.facebook.CallbackManager
+import com.facebook.FacebookCallback
+import com.facebook.FacebookException
+import com.facebook.login.LoginManager
+import com.facebook.login.LoginResult
 import com.travelgo.app.data.auth.AppUser
 import com.travelgo.app.di.AppContainer
 import com.travelgo.app.ui.theme.Blue
@@ -61,8 +67,7 @@ private val textShadow = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.35
 
 /**
  * 01 · Đăng nhập (Người 1).
- * Google và Khách: đã chạy qua Firebase Auth.
- * TODO(Người 1): Facebook Login SDK + Firebase Auth.
+ * Google, Facebook và Khách: đăng nhập qua Firebase Auth.
  */
 @Composable
 fun LoginScreen(onLoggedIn: () -> Unit) {
@@ -90,6 +95,39 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
     ) { result ->
         loading = false
         attempt { auth.finishLegacyGoogleSignIn(result.data) }
+    }
+
+    // Đăng nhập Facebook: SDK mở màn đăng nhập, kết quả trả về qua callbackManager.
+    val callbackManager = remember { CallbackManager.Factory.create() }
+    val facebookLauncher = rememberLauncherForActivityResult(
+        LoginManager.getInstance().createLogInActivityResultContract(callbackManager, null),
+    ) { /* kết quả xử lý trong FacebookCallback bên dưới */ }
+
+    DisposableEffect(Unit) {
+        val loginManager = LoginManager.getInstance()
+        loginManager.registerCallback(callbackManager, object : FacebookCallback<LoginResult> {
+            override fun onSuccess(result: LoginResult) {
+                loading = false
+                attempt { auth.signInWithFacebook(result.accessToken) }
+            }
+
+            override fun onCancel() {
+                loading = false
+            }
+
+            override fun onError(error: FacebookException) {
+                loading = false
+                errorMessage = "Đăng nhập Facebook chưa thành công.\n${error.message}"
+            }
+        })
+        onDispose { loginManager.unregisterCallback(callbackManager) }
+    }
+
+    fun signInWithFacebook() {
+        if (loading) return
+        errorMessage = null
+        loading = true
+        facebookLauncher.launch(listOf("public_profile", "email"))
     }
 
     fun signInWithGoogle() {
@@ -183,7 +221,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                 iconTint = Color.White,
                 container = FacebookBlue,
                 content = Color.White,
-                onClick = { errorMessage = "Đăng nhập Facebook đang được hoàn thiện, bạn dùng Google hoặc dùng thử nhé." },
+                onClick = { signInWithFacebook() },
             )
             Text(
                 "Dùng thử không cần tài khoản",

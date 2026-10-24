@@ -4,6 +4,7 @@ package com.travelgo.app.navigation
 object Routes {
     const val LOGIN = "login"                         // 01 Đăng nhập (Người 1)
     const val LOCATION_PERMISSION = "location"        // 02 Xin quyền vị trí (Người 1)
+    const val LOCATION_PICKER = "location_picker"  // Chọn vị trí: GPS hoặc tỉnh thành (Người 1)
     const val HOME = "home"                           // 03 Trang chủ (Người 2)
     const val EXPLORE = "explore"                     // 04 Khám phá (Người 2)
     const val PROFILE = "profile"                     // 05 Cá nhân (Người 1)

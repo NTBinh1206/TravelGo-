@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Cấu hình đăng nhập Facebook (app TravelGo trên Meta for Developers).
+    App ID và Client Token vốn nằm trong file APK nên không phải thông tin bí mật.
+    TUYỆT ĐỐI không đưa App Secret vào đây: App Secret chỉ dán trong Firebase.
+-->
+<resources>
+    <string name="facebook_app_id" translatable="false">1123874973454637</string>
+    <string name="facebook_client_token" translatable="false">d093ed24d484ba91de30a0b974339099</string>
+    <string name="fb_login_protocol_scheme" translatable="false">fb1123874973454637</string>
+</resources>
