@@ -1,6 +1,8 @@
 package com.travelgo.app.di
 
-import com.travelgo.app.data.location.InMemoryLocationProvider
+import android.content.Context
+import com.travelgo.app.data.auth.AuthRepository
+import com.travelgo.app.data.location.FusedLocationProvider
 import com.travelgo.app.data.location.LocationProvider
 import com.travelgo.app.data.place.FakePlaceRepository
 import com.travelgo.app.data.place.PlaceRepository
@@ -11,6 +13,14 @@ import com.travelgo.app.data.place.PlaceRepository
  * (Có thể chuyển sang Hilt sau khi khung đã chạy ổn.)
  */
 object AppContainer {
-    val locationProvider: LocationProvider = InMemoryLocationProvider()
+    private lateinit var appContext: Context
+
+    /** Gọi một lần trong MainActivity.onCreate. */
+    fun init(context: Context) {
+        appContext = context.applicationContext
+    }
+
+    val locationProvider: LocationProvider by lazy { FusedLocationProvider(appContext) }
     val placeRepository: PlaceRepository = FakePlaceRepository()
+    val authRepository: AuthRepository by lazy { AuthRepository() }
 }

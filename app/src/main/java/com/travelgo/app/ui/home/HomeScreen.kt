@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
@@ -55,13 +56,20 @@ import com.travelgo.app.ui.theme.Navy
 
 /** 03 · Trang chủ (Người 2). */
 @Composable
-fun HomeScreen(onOpenSearch: () -> Unit, onOpenExplore: () -> Unit, onOpenNearby: () -> Unit) {
+fun HomeScreen(
+    onOpenSearch: () -> Unit,
+    onOpenExplore: () -> Unit,
+    onOpenNearby: () -> Unit,
+    onChangeLocation: () -> Unit,
+) {
+    val myLocation by AppContainer.locationProvider.currentLocation.collectAsState()
+    val placeName by AppContainer.locationProvider.placeName.collectAsState()
     val featured by produceState(initialValue = emptyList<Place>()) {
         value = AppContainer.placeRepository.getFeaturedDestinations()
     }
-    val nearby by produceState(initialValue = emptyList<Place>()) {
-        // TODO(Người 2): dùng vị trí thật từ AppContainer.locationProvider
-        value = AppContainer.placeRepository.getNearbyPlaces(GeoPoint.DEFAULT)
+    // Vị trí đổi (GPS mới / chọn tỉnh khác) thì tải lại danh sách gần bạn.
+    val nearby by produceState(initialValue = emptyList<Place>(), myLocation) {
+        value = AppContainer.placeRepository.getNearbyPlaces(myLocation ?: GeoPoint.DEFAULT)
     }
 
     LazyColumn(
@@ -70,12 +78,12 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenExplore: () -> Unit, onOpenNearby
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 20.dp)) {
-                Column(Modifier.weight(1f)) {
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable(onClick = onChangeLocation)) {
                     Text("Vị trí hiện tại", color = Muted, fontSize = 14.sp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = Blue, modifier = Modifier.size(22.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Đà Nẵng", color = Navy, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        Text(placeName ?: "Chọn vị trí", color = Navy, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null, tint = Muted)
                     }
                 }
@@ -140,7 +148,7 @@ fun HomeScreen(onOpenSearch: () -> Unit, onOpenExplore: () -> Unit, onOpenNearby
 
 @Composable
 private fun Banner(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth().height(164.dp).clip(RoundedCornerShape(20.dp))) {
+    Box(modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(20.dp))) {
         Image(
             painter = painterResource(R.drawable.img_banner),
             contentDescription = null,
@@ -165,7 +173,7 @@ private fun Banner(onClick: () -> Unit, modifier: Modifier = Modifier) {
             )
             Spacer(Modifier.height(2.dp))
             Text("Vẻ đẹp bất tận, ngay trong tầm tay.", color = Color.White.copy(alpha = 0.92f), fontSize = 13.sp)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
                 "Khám phá ngay",
                 color = Blue,

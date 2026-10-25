@@ -26,15 +26,20 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.travelgo.app.components.softShadow
+import com.travelgo.app.di.AppContainer
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.BlueLight
 import com.travelgo.app.ui.theme.Border
@@ -42,17 +47,18 @@ import com.travelgo.app.ui.theme.Danger
 import com.travelgo.app.ui.theme.DangerLight
 import com.travelgo.app.ui.theme.Muted
 import com.travelgo.app.ui.theme.Navy
+import kotlinx.coroutines.launch
 
-/**
- * 05 · Cá nhân (Người 1).
- * TODO(Người 1): lấy tên, email, ảnh từ FirebaseAuth.currentUser;
- * đăng xuất bằng FirebaseAuth.signOut().
- */
+/** 05 · Cá nhân (Người 1). Thông tin lấy từ tài khoản Firebase đang đăng nhập. */
 @Composable
 fun ProfileScreen(onLogout: () -> Unit) {
-    val name = "Nguyễn Minh Anh"
-    val email = "minhanh@email.com"
-    val initials = name.split(" ").takeLast(2).joinToString("") { it.take(1) }.uppercase()
+    val auth = AppContainer.authRepository
+    val user = auth.currentUser
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val name = user?.name ?: "Khách"
+    val email = user?.email.orEmpty()
+    val initials = name.split(" ").filter { it.isNotBlank() }.takeLast(2).joinToString("") { it.take(1) }.uppercase()
 
     Column(
         modifier = Modifier
@@ -74,13 +80,35 @@ fun ProfileScreen(onLogout: () -> Unit) {
                 .background(Color.White, cardShape)
                 .padding(vertical = 28.dp, horizontal = 16.dp),
         ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(72.dp).background(BlueLight, CircleShape)) {
-                Text(initials, color = Blue, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(72.dp).clip(CircleShape).background(BlueLight),
+            ) {
+                if (user?.photoUrl != null) {
+                    AsyncImage(
+                        model = user.photoUrl,
+                        contentDescription = name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(72.dp),
+                    )
+                } else {
+                    Text(initials, color = Blue, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                }
             }
             Spacer(Modifier.height(14.dp))
             Text(name, color = Navy, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
-            Text(email, color = Muted, fontSize = 14.sp)
+            if (email.isNotEmpty()) Text(email, color = Muted, fontSize = 14.sp)
+            if (user != null) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Đăng nhập bằng ${user.provider}",
+                    color = Blue,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.background(BlueLight, CircleShape).padding(horizontal = 12.dp, vertical = 5.dp),
+                )
+            }
         }
 
         Spacer(Modifier.height(24.dp))
@@ -95,7 +123,17 @@ fun ProfileScreen(onLogout: () -> Unit) {
         }
         Spacer(Modifier.height(16.dp))
         Column(Modifier.fillMaxWidth().softShadow(groupShape).background(Color.White, groupShape).clip(groupShape)) {
-            SettingRow(Icons.AutoMirrored.Outlined.Logout, "Đăng xuất", danger = true, onClick = onLogout)
+            SettingRow(
+                Icons.AutoMirrored.Outlined.Logout,
+                "Đăng xuất",
+                danger = true,
+                onClick = {
+                    scope.launch {
+                        auth.signOut(context)
+                        onLogout()
+                    }
+                },
+            )
         }
         Spacer(Modifier.height(24.dp))
     }

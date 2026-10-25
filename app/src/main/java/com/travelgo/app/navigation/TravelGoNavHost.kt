@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -15,7 +17,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.travelgo.app.components.BottomTabBar
+import com.travelgo.app.di.AppContainer
 import com.travelgo.app.ui.auth.LocationPermissionScreen
+import com.travelgo.app.ui.auth.LocationPickerScreen
 import com.travelgo.app.ui.auth.LoginScreen
 import com.travelgo.app.ui.explore.ExploreScreen
 import com.travelgo.app.ui.explore.NearbyScreen
@@ -30,6 +34,16 @@ fun TravelGoApp() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showTabs = currentRoute != null && currentRoute in Routes.tabRoutes
+    // Đã đăng nhập từ lần trước thì vào thẳng Trang chủ.
+    val startDestination = remember {
+        if (AppContainer.authRepository.currentUser != null) Routes.HOME else Routes.LOGIN
+    }
+
+    // Đã có quyền vị trí từ trước thì cập nhật GPS ngầm mỗi lần mở app.
+    LaunchedEffect(Unit) {
+        val location = AppContainer.locationProvider
+        if (location.hasPermission()) location.refreshFromGps()
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -46,7 +60,7 @@ fun TravelGoApp() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.LOGIN,
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding),
         ) {
             composable(Routes.LOGIN) {
@@ -60,10 +74,18 @@ fun TravelGoApp() {
             }
             composable(Routes.LOCATION_PERMISSION) {
                 LocationPermissionScreen(
-                    onDone = {
-                        navController.navigate(Routes.HOME) {
-                            popUpTo(Routes.LOCATION_PERMISSION) { inclusive = true }
-                        }
+                    onLocated = { navController.navigateHomeFrom(Routes.LOCATION_PERMISSION) },
+                    onChooseManually = { navController.navigate(Routes.LOCATION_PICKER) },
+                )
+            }
+            composable(Routes.LOCATION_PICKER) {
+                LocationPickerScreen(
+                    onBack = { navController.popBackStack() },
+                    onPicked = {
+                        // Mở từ Trang chủ thì quay lại; mở từ màn 02 thì vào Trang chủ.
+                        val fromHome = navController.previousBackStackEntry?.destination?.route == Routes.HOME
+                        if (fromHome) navController.popBackStack()
+                        else navController.navigateHomeFrom(Routes.LOCATION_PERMISSION)
                     },
                 )
             }
@@ -72,6 +94,7 @@ fun TravelGoApp() {
                     onOpenSearch = { navController.navigate(Routes.SEARCH) },
                     onOpenExplore = { navController.navigateToTab(Routes.EXPLORE) },
                     onOpenNearby = { navController.navigate(Routes.NEARBY) },
+                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) },
                 )
             }
             composable(Routes.EXPLORE) {
@@ -106,6 +129,12 @@ fun TravelGoApp() {
                 SmartRouteScreen(placeIds = ids, onBack = { navController.popBackStack() })
             }
         }
+    }
+}
+
+private fun NavHostController.navigateHomeFrom(route: String) {
+    navigate(Routes.HOME) {
+        popUpTo(route) { inclusive = true }
     }
 }
 
