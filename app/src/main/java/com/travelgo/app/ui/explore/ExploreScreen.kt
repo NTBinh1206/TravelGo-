@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Waves
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -72,8 +73,9 @@ enum class SortOption(val label: String) { NEAREST("Gần nhất"), TOP_RATED("�
 fun ExploreScreen(onOpenSearch: () -> Unit) {
     var category by remember { mutableStateOf<String?>(null) }
     var sort by remember { mutableStateOf(SortOption.NEAREST) }
-    val me = GeoPoint.DEFAULT // TODO(Người 2): vị trí thật
-    val places by produceState(initialValue = emptyList<Place>()) {
+    val location by AppContainer.locationProvider.currentLocation.collectAsState()
+    val me = location ?: GeoPoint.DEFAULT
+    val places by produceState(initialValue = emptyList<Place>(),me) {
         value = AppContainer.placeRepository.getNearbyPlaces(me)
     }
     val shown = places

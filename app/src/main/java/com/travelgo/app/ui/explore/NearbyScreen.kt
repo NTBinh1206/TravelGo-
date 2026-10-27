@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
@@ -45,8 +46,9 @@ private const val MAX_STOPS = 5
 /** 07 · Địa điểm gần bạn (Người 2). Lấy 5 điểm gần nhất rồi sang màn Lộ trình. */
 @Composable
 fun NearbyScreen(onBack: () -> Unit, onSmartRoute: (List<String>) -> Unit) {
-    val me = GeoPoint.DEFAULT // TODO(Người 2): vị trí thật
-    val places by produceState(initialValue = emptyList<Place>()) {
+    val userLocation by AppContainer.locationProvider.currentLocation.collectAsState()
+    val me = userLocation ?: GeoPoint.DEFAULT // TODO(Người 2): vị trí thật
+    val places by produceState(initialValue = emptyList<Place>(), me) {
         value = AppContainer.placeRepository.getNearbyPlaces(me)
             .sortedBy { me.distanceKmTo(it.location) }
             .take(MAX_STOPS)

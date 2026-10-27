@@ -36,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -70,7 +71,8 @@ fun SearchResultScreen(onBack: () -> Unit) {
     var query by remember { mutableStateOf("") }
     var gridMode by remember { mutableStateOf(false) }
     var sortChip by remember { mutableStateOf("Liên quan") }
-    val me = GeoPoint.DEFAULT // TODO(Người 2): vị trí thật
+    val userLocation by AppContainer.locationProvider.currentLocation.collectAsState()
+    val me = userLocation ?: GeoPoint.DEFAULT
     val found by produceState(initialValue = emptyList<Place>(), query) {
         value = AppContainer.placeRepository.searchPlaces(query)
     }
