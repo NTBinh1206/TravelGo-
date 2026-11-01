@@ -40,19 +40,20 @@ import com.travelgo.app.di.AppContainer
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.BlueLight
 import com.travelgo.app.ui.theme.Muted
-
+import android.util.Log
 private const val MAX_STOPS = 5
 
 /** 07 · Địa điểm gần bạn (Người 2). Lấy 5 điểm gần nhất rồi sang màn Lộ trình. */
 @Composable
 fun NearbyScreen(onBack: () -> Unit, onSmartRoute: (List<String>) -> Unit) {
     val userLocation by AppContainer.locationProvider.currentLocation.collectAsState()
-    val me = userLocation ?: GeoPoint.DEFAULT // TODO(Người 2): vị trí thật
-    val places by produceState(initialValue = emptyList<Place>(), me) {
-        value = AppContainer.placeRepository.getNearbyPlaces(me)
-            .sortedBy { me.distanceKmTo(it.location) }
-            .take(MAX_STOPS)
+    val me = userLocation ?: GeoPoint.DEFAULT
+    val center = rememberSearchCenter(me)
+    val loaded by produceState(initialValue = emptyList<Place>(), key1 = center) {
+        Log.d("TravelGo", "Tai lai dia diem gan ban quanh $center")
+        value = AppContainer.placeRepository.getNearbyPlaces(center)
     }
+    val places = loaded.sortedBy { me.distanceKmTo(it.location) }.take(MAX_STOPS)
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         CenterHeader(

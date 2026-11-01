@@ -53,6 +53,7 @@ import com.travelgo.app.di.AppContainer
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.Muted
 import com.travelgo.app.ui.theme.Navy
+import android.util.Log
 
 private data class Category(val key: String?, val label: String, val icon: ImageVector)
 
@@ -75,8 +76,10 @@ fun ExploreScreen(onOpenSearch: () -> Unit) {
     var sort by remember { mutableStateOf(SortOption.NEAREST) }
     val location by AppContainer.locationProvider.currentLocation.collectAsState()
     val me = location ?: GeoPoint.DEFAULT
-    val places by produceState(initialValue = emptyList<Place>(),me) {
-        value = AppContainer.placeRepository.getNearbyPlaces(me)
+    val center = rememberSearchCenter(me)
+    val places by produceState(initialValue = emptyList<Place>(), key1 = center) {
+        Log.d("TravelGo", "Tai lai dia diem quanh $center")
+        value = AppContainer.placeRepository.getNearbyPlaces(center)
     }
     val shown = places
         .filter { category == null || it.category == category }
