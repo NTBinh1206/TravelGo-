@@ -39,7 +39,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -64,6 +63,9 @@ import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.Border
 import com.travelgo.app.ui.theme.Muted
 import com.travelgo.app.ui.theme.Navy
+import kotlinx.coroutines.delay
+
+private const val SEARCH_DEBOUNCE_MS = 400L
 
 /** 06 · Kết quả tìm kiếm (Người 2). */
 @Composable
@@ -71,12 +73,32 @@ fun SearchResultScreen(onBack: () -> Unit) {
     var query by remember { mutableStateOf("") }
     var gridMode by remember { mutableStateOf(false) }
     var sortChip by remember { mutableStateOf("Liên quan") }
+    var filter by remember { mutableStateOf(SearchFilter()) }
+    var showFilter by remember { mutableStateOf(false) }
     val userLocation by AppContainer.locationProvider.currentLocation.collectAsState()
     val me = userLocation ?: GeoPoint.DEFAULT
-    val found by produceState(initialValue = emptyList<Place>(), query) {
-        value = AppContainer.placeRepository.searchPlaces(query)
+    // Ngừng gõ một chút mới tìm: tìm trong bộ dữ liệu có sẵn nên rất nhanh.
+    // Mỗi lần gõ thêm chữ, lần chờ cũ bị huỷ và đếm lại từ đầu.
+    // (Nếu phải hỏi thêm Nominatim, repository tự giãn cách 1 giây/lần.)
+    val loader = rememberLoader(query) {
+        if (query.isBlank()) {
+            emptyList<Place>()
+        } else {
+            delay(SEARCH_DEBOUNCE_MS)
+            AppContainer.placeRepository.searchPlaces(query)
+        }
     }
-    val results = if (sortChip == "Gần nhất") found.sortedBy { me.distanceKmTo(it.location) } else found
+    val found = loader.dataOrNull.orEmpty()
+    val filtered = found.applyFilter(filter, me)
+    val results = if (sortChip == "Gần nhất") filtered.sortedBy { me.distanceKmTo(it.location) } else filtered
+
+    if (showFilter) {
+        FilterSheet(
+            current = filter,
+            onApply = { filter = it; showFilter = false },
+            onDismiss = { showFilter = false },
+        )
+    }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         BackTitleHeader(
@@ -96,7 +118,7 @@ fun SearchResultScreen(onBack: () -> Unit) {
         ) {
             Column(Modifier.weight(1f)) {
                 Text("${results.size} kết quả", color = Navy, fontSize = 19.sp)
-                Text("Quanh Đà Nẵng · trong 25 km", color = Muted, fontSize = 13.sp)
+                Text("Toàn Việt Nam · ưu tiên gần bạn", color = Muted, fontSize = 13.sp)
             }
             ViewToggle(gridMode = gridMode, onChange = { gridMode = it })
         }
@@ -108,8 +130,30 @@ fun SearchResultScreen(onBack: () -> Unit) {
                 .padding(horizontal = 20.dp),
         ) {
             PillChip("Liên quan", selected = sortChip == "Liên quan", onClick = { sortChip = "Liên quan" })
-            PillChip("Bộ lọc · 2", icon = Icons.Outlined.Tune, selected = false, onClick = { /* TODO(Người 2): mở bộ lọc */ })
+            PillChip(
+                label = if (filter.activeCount > 0) "Bộ lọc · ${filter.activeCount}" else "Bộ lọc",
+                icon = Icons.Outlined.Tune,
+                selected = filter.activeCount > 0,
+                onClick = { showFilter = true },
+            )
             PillChip("Gần nhất", selected = sortChip == "Gần nhất", onClick = { sortChip = "Gần nhất" })
+        }
+        if (query.isBlank()) {
+            Text(
+                "Gõ tên địa điểm hoặc thành phố, ví dụ \"da lat\", \"chùa\", \"biển\".",
+                color = Muted,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp),
+            )
+        } else {
+            LoadStatus(
+                loader.withData(results),
+                emptyText = if (filter.activeCount > 0) {
+                    "Không tìm thấy \"$query\" với bộ lọc hiện tại. Thử bỏ bớt bộ lọc."
+                } else {
+                    "Không tìm thấy \"$query\". Thử từ khoá khác."
+                },
+            )
         }
         if (gridMode) {
             LazyVerticalGrid(

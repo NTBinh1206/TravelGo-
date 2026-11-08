@@ -30,7 +30,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,7 +47,6 @@ import com.travelgo.app.components.SearchBarButton
 import com.travelgo.app.components.SquareIconButton
 import com.travelgo.app.components.softShadow
 import com.travelgo.app.data.model.GeoPoint
-import com.travelgo.app.data.place.Place
 import com.travelgo.app.di.AppContainer
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.Muted
@@ -66,7 +64,7 @@ private val categories = listOf(
     Category("thien_nhien", "Thiên nhiên", Icons.Outlined.Park),
 )
 
-enum class SortOption(val label: String) { NEAREST("Gần nhất"), TOP_RATED("Đánh giá cao") }
+enum class SortOption(val label: String) { NEAREST("Gần nhất"), TOP_RATED("Nổi bật") }
 
 /** 04 · Khám phá (Người 2). */
 @OptIn(ExperimentalLayoutApi::class)
@@ -77,11 +75,11 @@ fun ExploreScreen(onOpenSearch: () -> Unit) {
     val location by AppContainer.locationProvider.currentLocation.collectAsState()
     val me = location ?: GeoPoint.DEFAULT
     val center = rememberSearchCenter(me)
-    val places by produceState(initialValue = emptyList<Place>(), key1 = center) {
+    val loader = rememberLoader(center) {
         Log.d("TravelGo", "Tai lai dia diem quanh $center")
-        value = AppContainer.placeRepository.getNearbyPlaces(center)
+        AppContainer.placeRepository.getNearbyPlaces(center)
     }
-    val shown = places
+    val shown = loader.dataOrNull.orEmpty()
         .filter { category == null || it.category == category }
         .let { list ->
             when (sort) {
@@ -125,6 +123,7 @@ fun ExploreScreen(onOpenSearch: () -> Unit) {
                 Text("${shown.size} địa điểm", color = Muted, fontSize = 14.sp)
             }
         }
+        item { LoadStatus(loader.withData(shown), emptyText = "Không có địa điểm nào thuộc loại này quanh bạn.") }
         items(shown, key = { it.id }) { place ->
             PlaceRowCard(
                 place = place,
