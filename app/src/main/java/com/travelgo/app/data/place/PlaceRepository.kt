@@ -1,7 +1,7 @@
 package com.travelgo.app.data.place
 
 import com.travelgo.app.data.model.GeoPoint
-
+import java.text.Normalizer
 /**
  * QUY ƯỚC CHUNG: nơi lấy dữ liệu địa điểm.
  * Người 2 viết bản thật (Google Places API + cache Firestore) thay cho FakePlaceRepository.
@@ -21,7 +21,11 @@ interface PlaceRepository {
 }
 
 private fun res(name: String) = "android.resource://com.travelgo.app/drawable/$name"
-
+private fun String.removeAccents(): String =
+    Normalizer.normalize(this, Normalizer.Form.NFD)
+        .replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
+        .replace('đ', 'd')
+        .replace('Đ', 'D')
 /** Dữ liệu giả để dựng giao diện khi chưa nối API. Ảnh lấy từ bản thiết kế. */
 class FakePlaceRepository : PlaceRepository {
 
@@ -43,12 +47,14 @@ class FakePlaceRepository : PlaceRepository {
 
     override suspend fun getNearbyPlaces(center: GeoPoint, radiusKm: Int): List<Place> = samples
 
-    override suspend fun searchPlaces(query: String): List<Place> =
-        if (query.isBlank()) samples
-        else samples.filter {
-            it.name.contains(query, ignoreCase = true) || it.address.contains(query, ignoreCase = true)
+    override suspend fun searchPlaces(query: String): List<Place> {
+        if (query.isBlank()) return samples
+        val q = query.removeAccents()
+        return samples.filter {
+            it.name.removeAccents().contains(q, ignoreCase = true) ||
+                    it.address.removeAccents().contains(q, ignoreCase = true)
         }
-
+    }
     override suspend fun getPlacesByIds(ids: List<String>): List<Place> =
         ids.mapNotNull { id -> samples.firstOrNull { it.id == id } }
 

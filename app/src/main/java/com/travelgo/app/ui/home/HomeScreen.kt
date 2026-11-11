@@ -52,7 +52,12 @@ import com.travelgo.app.data.place.Place
 import com.travelgo.app.di.AppContainer
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.Muted
+import com.travelgo.app.ui.explore.LoadStatus
+import com.travelgo.app.ui.explore.rememberLoader
+import com.travelgo.app.ui.explore.rememberSearchCenter
 import com.travelgo.app.ui.theme.Navy
+
+private const val HOME_NEARBY_COUNT = 10
 
 /** 03 · Trang chủ (Người 2). */
 @Composable
@@ -67,10 +72,15 @@ fun HomeScreen(
     val featured by produceState(initialValue = emptyList<Place>()) {
         value = AppContainer.placeRepository.getFeaturedDestinations()
     }
-    // Vị trí đổi (GPS mới / chọn tỉnh khác) thì tải lại danh sách gần bạn.
-    val nearby by produceState(initialValue = emptyList<Place>(), myLocation) {
-        value = AppContainer.placeRepository.getNearbyPlaces(myLocation ?: GeoPoint.DEFAULT)
+    // Vị trí đổi (GPS mới / chọn tỉnh khác, xa hơn 2 km) thì tải lại danh sách gần bạn.
+    val me = myLocation ?: GeoPoint.DEFAULT
+    val center = rememberSearchCenter(me)
+    val nearbyLoader = rememberLoader(center) {
+        AppContainer.placeRepository.getNearbyPlaces(center)
+            .sortedBy { me.distanceKmTo(it.location) }
+            .take(HOME_NEARBY_COUNT)
     }
+    val nearby = nearbyLoader.dataOrNull.orEmpty()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
@@ -132,6 +142,9 @@ fun HomeScreen(
                 "Gần bạn", "Xem tất cả", onOpenNearby,
                 Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
             )
+        }
+        item {
+            LoadStatus(nearbyLoader, emptyText = "Chưa tìm thấy điểm du lịch nào quanh đây.")
         }
         item {
             LazyRow(

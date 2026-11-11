@@ -23,8 +23,8 @@ import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -34,23 +34,24 @@ import com.travelgo.app.components.CenterHeader
 import com.travelgo.app.components.PlaceRowCard
 import com.travelgo.app.components.PrimaryButton
 import com.travelgo.app.data.model.GeoPoint
-import com.travelgo.app.data.place.Place
 import com.travelgo.app.di.AppContainer
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.BlueLight
 import com.travelgo.app.ui.theme.Muted
-
+import android.util.Log
 private const val MAX_STOPS = 5
 
 /** 07 · Địa điểm gần bạn (Người 2). Lấy 5 điểm gần nhất rồi sang màn Lộ trình. */
 @Composable
 fun NearbyScreen(onBack: () -> Unit, onSmartRoute: (List<String>) -> Unit) {
-    val me = GeoPoint.DEFAULT // TODO(Người 2): vị trí thật
-    val places by produceState(initialValue = emptyList<Place>()) {
-        value = AppContainer.placeRepository.getNearbyPlaces(me)
-            .sortedBy { me.distanceKmTo(it.location) }
-            .take(MAX_STOPS)
+    val userLocation by AppContainer.locationProvider.currentLocation.collectAsState()
+    val me = userLocation ?: GeoPoint.DEFAULT
+    val center = rememberSearchCenter(me)
+    val loader = rememberLoader(center) {
+        Log.d("TravelGo", "Tai lai dia diem gan ban quanh $center")
+        AppContainer.placeRepository.getNearbyPlaces(center)
     }
+    val places = loader.dataOrNull.orEmpty().sortedBy { me.distanceKmTo(it.location) }.take(MAX_STOPS)
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         CenterHeader(
@@ -78,6 +79,7 @@ fun NearbyScreen(onBack: () -> Unit, onSmartRoute: (List<String>) -> Unit) {
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            item { LoadStatus(loader, emptyText = "Chưa tìm thấy điểm du lịch nào quanh đây.") }
             items(places, key = { it.id }) { place ->
                 PlaceRowCard(
                     place = place,
