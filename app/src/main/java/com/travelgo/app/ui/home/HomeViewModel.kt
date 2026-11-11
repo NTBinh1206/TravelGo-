@@ -51,6 +51,8 @@ class HomeViewModel(
                     .take(HOME_NEARBY_COUNT)
             }
         }
+        // Giữ kết quả suốt đời ViewModel: rời màn rồi quay lại không phải tải lại.
+        .stateIn(viewModelScope, SharingStarted.Lazily, LoadState.Loading)
 
     val uiState: StateFlow<HomeUiState> =
         combine(location.placeName, featured, nearby) { name, featuredList, nearbyState ->

@@ -37,6 +37,8 @@ class NearbyViewModel(
 
     private val nearby = combine(location.currentLocation.anchored(), retry) { center, _ -> center }
         .flatMapLatest { center -> loadFlow { placeRepository.getNearbyPlaces(center) } }
+        // Giữ kết quả suốt đời ViewModel: rời màn rồi quay lại không phải tải lại.
+        .stateIn(viewModelScope, SharingStarted.Lazily, LoadState.Loading)
 
     val uiState: StateFlow<NearbyUiState> =
         combine(location.currentLocation, nearby) { current, state ->

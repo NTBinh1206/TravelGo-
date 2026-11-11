@@ -63,7 +63,9 @@ internal class PlaceDataset(private val context: Context) {
         val out = ArrayList<Entry>(8_000)
         context.assets.open(FILE).bufferedReader(Charsets.UTF_8).useLines { lines ->
             lines.drop(1).forEach { line ->
-                val c = line.split('\t')
+                // Ô nào có dấu phẩy bị công cụ xuất file bọc trong ngoặc kép ("en:Bảo tàng A, B"): bỏ ngoặc đi,
+                // nếu không link Wikipedia thành https://"en.wikipedia.org... và điểm đó mất ảnh.
+                val c = line.split('\t').map { it.trim().removeSurrounding("\"") }
                 if (c.size < 11) return@forEach
                 val lat = c[3].toDoubleOrNull() ?: return@forEach
                 val lng = c[4].toDoubleOrNull() ?: return@forEach

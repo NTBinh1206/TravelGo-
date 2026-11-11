@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -14,6 +15,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,13 +38,20 @@ import com.travelgo.app.data.model.GeoPoint
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.Green
 import com.travelgo.app.ui.theme.Muted
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
+import org.osmdroid.tileprovider.tilesource.XYTileSource
+import org.osmdroid.util.MapTileIndex
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 import org.osmdroid.util.GeoPoint as OsmPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
  * Bản đồ OpenStreetMap thật (thư viện osmdroid, không cần khoá API) có đường đi và điểm đánh số.
@@ -59,13 +71,18 @@ fun RouteMap(
     val context = LocalContext.current
     val mapView = remember {
         MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(false)
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
             isTilesScaledToDpi = true
             minZoomLevel = 4.0
             maxZoomLevel = 18.0
         }
+    }
+
+    // Chọn máy chủ ô bản đồ vào được từ mạng hiện tại (chạy nền, vài giây ở lần đầu).
+    var server by remember { mutableStateOf(chosenServer) }
+    LaunchedEffect(Unit) {
+        if (server == null) server = pickTileServer()
     }
 
     // Bản đồ cần biết lúc màn hình tạm dừng / tiếp tục để dừng tải ô bản đồ, và dọn dẹp khi rời màn.
@@ -88,7 +105,10 @@ fun RouteMap(
     Box(modifier.clip(RoundedCornerShape(20.dp))) {
         AndroidView(
             factory = { mapView },
-            update = { map -> map.showRoute(context, start, stops, roundTrip) },
+            update = { map ->
+                server?.let { if (map.tileProvider.tileSource != it.source) map.setTileSource(it.source) }
+                map.showRoute(context, start, stops, roundTrip)
+            },
             modifier = Modifier.matchParentSize(),
         )
         // Lớp phủ trong suốt: nhận chạm thay bản đồ để danh sách bên ngoài vẫn cuộn được.
@@ -112,9 +132,9 @@ fun RouteMap(
                 .background(Color.White, CircleShape)
                 .padding(horizontal = 12.dp, vertical = 6.dp),
         )
-        // Giấy phép dữ liệu OpenStreetMap (ODbL) yêu cầu ghi nguồn trên bản đồ.
+        // Giấy phép dữ liệu OpenStreetMap (ODbL) và máy chủ ô bản đồ yêu cầu ghi nguồn trên bản đồ.
         Text(
-            "© OpenStreetMap contributors",
+            server?.attribution ?: "Đang tải bản đồ…",
             color = Muted,
             fontSize = 10.sp,
             modifier = Modifier
@@ -124,6 +144,66 @@ fun RouteMap(
                 .padding(horizontal = 6.dp, vertical = 2.dp),
         )
     }
+}
+
+/** Một máy chủ ô bản đồ miễn phí, không cần khoá API, kèm dòng ghi nguồn bắt buộc. */
+private class TileServer(val source: OnlineTileSourceBase, val attribution: String)
+
+private fun xyz(name: String, maxZoom: Int, vararg urls: String) =
+    XYTileSource(name, 0, maxZoom, 256, ".png", arrayOf(*urls))
+
+/**
+ * Esri dùng thứ tự z/y/x thay vì z/x/y nên cần tự ghép đường dẫn.
+ * (Ảnh nền Esri, không phải dữ liệu OSM: chỉ dùng khi các máy chủ OSM ở trên đều không vào được.)
+ */
+private val EsriStreet = object : OnlineTileSourceBase(
+    "EsriWorldStreet", 0, 19, 256, "",
+    arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/"),
+) {
+    override fun getTileURLString(index: Long): String =
+        baseUrl + MapTileIndex.getZoom(index) + "/" + MapTileIndex.getY(index) + "/" + MapTileIndex.getX(index)
+}
+
+/**
+ * Thử lần lượt từ trên xuống, dùng máy chủ đầu tiên trả lời được.
+ * Lý do: khi chạy thử từ mạng Việt Nam, tile.openstreetmap.org báo "Failed to connect",
+ * CARTO đã bắt buộc khoá API, nên không thể chỉ dựa vào một máy chủ.
+ */
+private val tileServers = listOf(
+    TileServer(xyz("OsmStandard", 19, "https://tile.openstreetmap.org/"), "© OpenStreetMap contributors"),
+    TileServer(
+        xyz("OsmFranceHot", 19, "https://a.tile.openstreetmap.fr/hot/", "https://b.tile.openstreetmap.fr/hot/"),
+        "© OpenStreetMap contributors · HOT · OSM France",
+    ),
+    TileServer(
+        xyz("OpenTopoMap", 17, "https://a.tile.opentopomap.org/", "https://b.tile.opentopomap.org/"),
+        "© OpenStreetMap contributors · OpenTopoMap",
+    ),
+    TileServer(EsriStreet, "Tiles © Esri"),
+)
+
+/** Máy chủ đã chọn, nhớ lại cho các lần mở bản đồ sau trong cùng lần chạy app. */
+@Volatile
+private var chosenServer: TileServer? = null
+
+/** Tải thử một ô bản đồ vùng Việt Nam (zoom 6) từ từng máy chủ, tối đa 4 giây mỗi máy chủ. */
+private suspend fun pickTileServer(): TileServer = chosenServer ?: withContext(Dispatchers.IO) {
+    val probe = MapTileIndex.getTileIndex(6, 50, 29)
+    val found = tileServers.firstOrNull { server ->
+        runCatching {
+            val conn = URL(server.source.getTileURLString(probe)).openConnection() as HttpURLConnection
+            try {
+                conn.connectTimeout = 4_000
+                conn.readTimeout = 4_000
+                conn.setRequestProperty("User-Agent", Configuration.getInstance().userAgentValue)
+                conn.responseCode == 200 && conn.contentType.orEmpty().startsWith("image")
+            } finally {
+                conn.disconnect()
+            }
+        }.getOrDefault(false)
+    } ?: tileServers.first()
+    Log.d("TravelGo", "Bản đồ dùng máy chủ ${found.source.name()}")
+    found.also { chosenServer = it }
 }
 
 /** Vẽ lại đường đi + các điểm, rồi thu phóng cho vừa khung. */
@@ -149,7 +229,7 @@ private fun MapView.showRoute(context: Context, start: GeoPoint, stops: List<Geo
     val all = listOf(startPoint) + stopPoints
     val fit = {
         val box = BoundingBox.fromGeoPointsSafe(all)
-        if (box.latitudeSpan < 0.002 && box.longitudeSpan < 0.002) {
+        if (box.latitudeSpan < 0.002 && box.longitudeSpanWithDateLine < 0.002) {
             controller.setZoom(17.0)
             controller.setCenter(box.centerWithDateLine)
         } else {

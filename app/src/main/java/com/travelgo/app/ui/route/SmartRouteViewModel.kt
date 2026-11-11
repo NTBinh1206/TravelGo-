@@ -59,6 +59,8 @@ class SmartRouteViewModel(
     private val places = retry.flatMapLatest {
         loadFlow { placeRepository.getPlacesByIds(placeIds).take(MAX_ROUTE_PLACES) }
     }
+        // Giữ kết quả suốt đời ViewModel: rời màn rồi quay lại không phải tải lại.
+        .stateIn(viewModelScope, SharingStarted.Lazily, LoadState.Loading)
 
     val uiState: StateFlow<SmartRouteUiState> =
         combine(places, mode, customOrder) { placesState, currentMode, order ->
