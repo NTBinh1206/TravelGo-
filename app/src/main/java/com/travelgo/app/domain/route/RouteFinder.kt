@@ -7,7 +7,7 @@ import kotlin.math.roundToInt
 private const val ROAD_FACTOR = 1.3      // ước lượng đường bộ từ đường chim bay
 private const val AVG_SPEED_KMH = 28.0   // tốc độ trung bình nội thành
 private const val MAX_PLACES = 5         // 5! = 120 thứ tự, vét cạn vẫn tức thì
-private const val RATING_WEIGHT_KM = 3.0 // 1 điểm rating "đáng giá" bao nhiêu km (chỉnh được)
+private const val SCORE_WEIGHT_KM = 3.0  // 1 điểm "nổi bật" đáng giá bao nhiêu km (chỉnh được)
 
 /**
  * Task 23: ma trận khoảng cách (km đường bộ ước lượng) giữa mọi cặp điểm.
@@ -46,10 +46,10 @@ fun findBestRoute(start: GeoPoint, places: List<Place>, mode: RouteMode): RouteR
         RouteMode.SHORTEST -> pathKm(order)
         // Tính cả chặng quay về điểm xuất phát
         RouteMode.ROUND_TRIP -> pathKm(order) + m[order.last() + 1][0]
-        // Điểm rating cao đi càng sớm càng được thưởng (trừ vào chi phí)
-        RouteMode.BEST_RATED -> pathKm(order) - RATING_WEIGHT_KM *
+        // Điểm có độ nổi bật cao đi càng sớm càng được thưởng (trừ vào chi phí)
+        RouteMode.BEST_RATED -> pathKm(order) - SCORE_WEIGHT_KM *
                 order.withIndex().sumOf { (pos, i) ->
-                    places[i].rating.toDouble() * (order.size - pos)
+                    places[i].score * (order.size - pos)
                 }
     }
 
@@ -68,17 +68,31 @@ fun evaluateRoute(start: GeoPoint, ordered: List<Place>, mode: RouteMode): Route
         legs += prev.distanceKmTo(p.location) * ROAD_FACTOR
         prev = p.location
     }
-    var total = legs.sum()
-    if (mode == RouteMode.ROUND_TRIP && ordered.isNotEmpty()) {
-        total += prev.distanceKmTo(start) * ROAD_FACTOR
+    val back = if (mode == RouteMode.ROUND_TRIP && ordered.isNotEmpty()) {
+        prev.distanceKmTo(start) * ROAD_FACTOR
+    } else {
+        0.0
     }
+    val total = legs.sum() + back
     return RouteResult(
         order = ordered,
         legKm = legs,
         totalKm = total,
         totalMinutes = (total / AVG_SPEED_KMH * 60).roundToInt(),
+        returnKm = back,
     )
 }
 
 /** Phút đi hết một chặng [km]. */
 fun legMinutes(km: Double): Int = (km / AVG_SPEED_KMH * 60).roundToInt()
+
+/**
+ * Hiển thị thời lượng: 0 -> "<1 phút", 45 -> "45 phút", 452 -> "7 giờ 32 phút", 120 -> "2 giờ".
+ * Chặng rất ngắn trước đây hiện "0 phút", trông như lỗi.
+ */
+fun formatDuration(minutes: Int): String = when {
+    minutes < 1 -> "<1 phút"
+    minutes < 60 -> "$minutes phút"
+    minutes % 60 == 0 -> "${minutes / 60} giờ"
+    else -> "${minutes / 60} giờ ${minutes % 60} phút"
+}

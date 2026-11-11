@@ -1,15 +1,14 @@
 package com.travelgo.app.ui.route
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -40,43 +38,34 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.travelgo.app.R
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelgo.app.components.CenterHeader
 import com.travelgo.app.components.PlaceImage
 import com.travelgo.app.components.PrimaryButton
-import com.travelgo.app.components.RatingText
+import com.travelgo.app.components.ScoreBadge
 import com.travelgo.app.components.softShadow
 import com.travelgo.app.data.model.GeoPoint
 import com.travelgo.app.data.model.formatKm
 import com.travelgo.app.data.place.Place
-import com.travelgo.app.di.AppContainer
 import com.travelgo.app.domain.route.RouteMode
 import com.travelgo.app.domain.route.RouteResult
-import com.travelgo.app.domain.route.evaluateRoute
-import com.travelgo.app.domain.route.findBestRoute
+import com.travelgo.app.domain.route.formatDuration
 import com.travelgo.app.domain.route.legMinutes
+import com.travelgo.app.ui.common.LoadStatus
+import com.travelgo.app.ui.common.dataOrNull
+import com.travelgo.app.ui.common.map
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.BlueLight
 import com.travelgo.app.ui.theme.Border
@@ -89,29 +78,15 @@ import com.travelgo.app.ui.theme.SurfaceSoft
  * 08 · Lộ trình thông minh (Người 3).
  * Task 30: đổi thứ tự điểm bằng nút mũi tên, tính lại km và phút (evaluateRoute).
  * Task 31: nút "Bắt đầu dẫn đường" mở Google Maps bằng Intent.
- * TODO(Người 3): thay ảnh bản đồ bằng Maps Compose (cần khoá API Google Maps).
+ * Bản đồ: OpenStreetMap (osmdroid), xem [RouteMap].
+ * Tính toán và trạng thái nằm trong [SmartRouteViewModel]; màn hình chỉ hiển thị và báo sự kiện.
  */
 @Composable
-fun SmartRouteScreen(placeIds: List<String>, onBack: () -> Unit) {
+fun SmartRouteScreen(viewModel: SmartRouteViewModel, onBack: () -> Unit) {
     val context = LocalContext.current
-    var mode by remember { mutableStateOf(RouteMode.SHORTEST) }
-    val loaded by produceState(initialValue = emptyList<Place>(), placeIds) {
-        value = AppContainer.placeRepository.getPlacesByIds(placeIds)
-    }
-    val places = loaded.take(5) // findBestRoute chỉ nhận tối đa 5 điểm, nhiều hơn sẽ crash
-    val start = AppContainer.locationProvider.currentLocation.value ?: GeoPoint.DEFAULT
-
-    // Thứ tự người dùng tự xếp. Đổi kiểu lộ trình thì trở về null (tính lại tối ưu).
-    var customOrder by remember(mode, places) { mutableStateOf<List<Place>?>(null) }
-    val route = customOrder?.let { evaluateRoute(start, it, mode) }
-        ?: findBestRoute(start, places, mode)
-
-    fun move(from: Int, to: Int) {
-        val list = route.order.toMutableList()
-        if (to !in list.indices) return
-        list.add(to, list.removeAt(from))
-        customOrder = list
-    }
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val route = state.route.dataOrNull
+    val roundTrip = state.mode == RouteMode.ROUND_TRIP
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         CenterHeader(
@@ -131,36 +106,63 @@ fun SmartRouteScreen(placeIds: List<String>, onBack: () -> Unit) {
                 ) {
                     Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = Blue, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Gợi ý bởi TravelGo", color = Blue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (state.customOrder) "Thứ tự do bạn sắp xếp" else "Gợi ý bởi TravelGo",
+                        color = Blue,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
                 Spacer(Modifier.height(14.dp))
             }
-            item {
-                RouteMapPreview(start = start, route = route, modifier = Modifier.fillMaxWidth().height(184.dp))
-                Spacer(Modifier.height(14.dp))
-            }
-            item {
-                StatsCard(route)
-                Spacer(Modifier.height(14.dp))
-            }
-            item {
-                ModeSelector(mode = mode, onChange = { mode = it })
-                Spacer(Modifier.height(14.dp))
-            }
-            item {
-                TipBox(mode)
-                Spacer(Modifier.height(14.dp))
-            }
-            item { StartCard() }
-            itemsIndexed(route.order, key = { _, p -> p.id }) { index, place ->
-                val km = route.legKm.getOrNull(index) ?: 0.0
-                LegConnector(km)
-                TimelineStepCard(
-                    number = index + 1,
-                    place = place,
-                    onMoveUp = if (index > 0) ({ move(index, index - 1) }) else null,
-                    onMoveDown = if (index < route.order.lastIndex) ({ move(index, index + 1) }) else null,
-                )
+            if (route == null) {
+                item {
+                    LoadStatus(
+                        state = state.route.map { emptyList<Place>() },
+                        onRetry = viewModel::retry,
+                        emptyText = "",
+                    )
+                }
+            } else {
+                item {
+                    RouteMap(
+                        start = state.start,
+                        stops = route.order.map { it.location },
+                        roundTrip = roundTrip,
+                        durationText = formatDuration(route.totalMinutes),
+                        modifier = Modifier.fillMaxWidth().height(184.dp),
+                    )
+                    Spacer(Modifier.height(14.dp))
+                }
+                item {
+                    StatsCard(route)
+                    Spacer(Modifier.height(14.dp))
+                }
+                item {
+                    ModeSelector(mode = state.mode, onChange = viewModel::selectMode)
+                    Spacer(Modifier.height(14.dp))
+                }
+                item {
+                    TipBox(state.mode)
+                    Spacer(Modifier.height(14.dp))
+                }
+                item { StartCard(title = "Vị trí của bạn", subtitle = "Bắt đầu hành trình") }
+                itemsIndexed(route.order, key = { _, p -> p.id }) { index, place ->
+                    LegConnector(route.legKm.getOrNull(index) ?: 0.0)
+                    TimelineStepCard(
+                        number = index + 1,
+                        place = place,
+                        onMoveUp = if (index > 0) ({ viewModel.moveUp(index) }) else null,
+                        onMoveDown = if (index < route.order.lastIndex) ({ viewModel.moveDown(index) }) else null,
+                    )
+                }
+                // Khứ hồi: hiện thêm chặng quay về (trước đây có tính vào tổng km nhưng không hiện trong danh sách).
+                if (roundTrip && route.order.isNotEmpty()) {
+                    item {
+                        LegConnector(route.returnKm)
+                        StartCard(title = "Về vị trí xuất phát", subtitle = "Kết thúc hành trình")
+                    }
+                }
             }
         }
         Column(Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding()) {
@@ -168,74 +170,14 @@ fun SmartRouteScreen(placeIds: List<String>, onBack: () -> Unit) {
             PrimaryButton(
                 text = "Bắt đầu dẫn đường",
                 icon = Icons.Outlined.NearMe,
-                onClick = { openGoogleMaps(context, start, route.order, mode) },
+                enabled = !route?.order.isNullOrEmpty(),
+                onClick = { route?.let { openGoogleMaps(context, state.start, it.order, roundTrip) } },
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp),
             )
             TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
                 Text("Chỉnh sửa điểm", color = Blue, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
-    }
-}
-
-/** Ảnh bản đồ mẫu + đường đi và marker đánh số vẽ đè lên. */
-@Composable
-private fun RouteMapPreview(start: GeoPoint, route: RouteResult, modifier: Modifier = Modifier) {
-    val points = listOf(start) + route.order.map { it.location }
-    val minLat = points.minOf { it.lat }; val maxLat = points.maxOf { it.lat }
-    val minLng = points.minOf { it.lng }; val maxLng = points.maxOf { it.lng }
-    val pad = 0.14f
-    fun nx(p: GeoPoint) = if (maxLng == minLng) 0.5f else pad + ((p.lng - minLng) / (maxLng - minLng)).toFloat() * (1 - 2 * pad)
-    fun ny(p: GeoPoint) = if (maxLat == minLat) 0.5f else pad + ((maxLat - p.lat) / (maxLat - minLat)).toFloat() * (1 - 2 * pad)
-
-    BoxWithConstraints(modifier.clip(RoundedCornerShape(20.dp))) {
-        Image(
-            painter = painterResource(R.drawable.img_route_map),
-            contentDescription = "Bản đồ lộ trình",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
-        Canvas(Modifier.fillMaxSize()) {
-            if (points.size > 1) {
-                val path = Path()
-                points.forEachIndexed { i, p ->
-                    val o = Offset(nx(p) * size.width, ny(p) * size.height)
-                    if (i == 0) path.moveTo(o.x, o.y) else path.lineTo(o.x, o.y)
-                }
-                drawPath(path, Blue, style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-            }
-        }
-        val w = maxWidth; val h = maxHeight
-        points.forEachIndexed { i, p ->
-            val isStart = i == 0
-            val d = if (isStart) 38.dp else 30.dp
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .offset(x = w * nx(p) - d / 2, y = h * ny(p) - d / 2)
-                    .size(d)
-                    .background(if (isStart) Green else Blue, CircleShape)
-                    .border(2.dp, Color.White, CircleShape),
-            ) {
-                Text(
-                    if (isStart) "Bạn" else "$i",
-                    color = Color.White,
-                    fontSize = if (isStart) 12.sp else 13.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        }
-        Text(
-            "${route.totalMinutes} phút",
-            color = Blue,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp)
-                .background(Color.White, CircleShape)
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-        )
     }
 }
 
@@ -251,10 +193,17 @@ private fun StatsCard(route: RouteResult) {
     ) {
         StatBox("Quãng đường", formatKm(route.totalKm), Modifier.weight(1f))
         Spacer(Modifier.width(10.dp))
-        StatBox("Di chuyển", "${route.totalMinutes} phút", Modifier.weight(1f))
+        StatBox("Di chuyển", formatDuration(route.totalMinutes), Modifier.weight(1f))
         Spacer(Modifier.width(10.dp))
         StatBox("Điểm dừng", "${route.order.size} điểm", Modifier.weight(1f))
     }
+    // Cả chuyến = di chuyển + thời gian tham quan ước lượng ở từng điểm.
+    Text(
+        "Cả chuyến khoảng ${formatDuration(route.tripMinutes)} (gồm ${formatDuration(route.stayMinutes)} tham quan)",
+        color = Muted,
+        fontSize = 13.sp,
+        modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+    )
 }
 
 @Composable
@@ -297,7 +246,7 @@ private fun ModeSelector(mode: RouteMode, onChange: (RouteMode) -> Unit) {
 private fun TipBox(mode: RouteMode) {
     val tip = when (mode) {
         RouteMode.SHORTEST -> "Đi theo hướng từ gần đến xa, tránh quay đầu để tiết kiệm quãng đường."
-        RouteMode.BEST_RATED -> "Ưu tiên ghé các điểm được đánh giá cao trước, quãng đường dài hơn một chút."
+        RouteMode.BEST_RATED -> "Ưu tiên ghé các điểm nổi bật trước, quãng đường có thể dài hơn một chút."
         RouteMode.ROUND_TRIP -> "Lộ trình quay về điểm xuất phát sau khi ghé điểm cuối."
     }
     Row(
@@ -316,7 +265,7 @@ private fun TipBox(mode: RouteMode) {
 }
 
 @Composable
-private fun StartCard() {
+private fun StartCard(title: String, subtitle: String) {
     val shape = RoundedCornerShape(18.dp)
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -327,8 +276,8 @@ private fun StartCard() {
         }
         Spacer(Modifier.width(12.dp))
         Column {
-            Text("Vị trí của bạn", color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-            Text("Bắt đầu hành trình", color = Muted, fontSize = 13.sp)
+            Text(title, color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = Muted, fontSize = 13.sp)
         }
     }
 }
@@ -347,7 +296,7 @@ private fun LegConnector(km: Double) {
             )
         }
         Spacer(Modifier.width(12.dp))
-        Text("${formatKm(km)} · ${legMinutes(km)} phút", color = Blue, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text("${formatKm(km)} · ${formatDuration(legMinutes(km))}", color = Blue, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -379,10 +328,10 @@ private fun TimelineStepCard(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                RatingText(place.rating)
+                ScoreBadge(place.score)
             }
             Text(place.tagline, color = Muted, fontSize = 13.sp, maxLines = 1)
-            Text("tham quan ~${place.stayMinutes} phút", color = Blue, fontSize = 13.sp)
+            Text("tham quan ~${formatDuration(place.stayMinutes)}", color = Blue, fontSize = 13.sp)
         }
         Spacer(Modifier.width(8.dp))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -413,11 +362,13 @@ private fun MoveButton(icon: ImageVector, description: String, onClick: (() -> U
     }
 }
 
-/** Mở Google Maps dẫn đường qua từng điểm theo thứ tự đang hiển thị. */
-private fun openGoogleMaps(context: Context, start: GeoPoint, order: List<Place>, mode: RouteMode) {
+/**
+ * Mở Google Maps dẫn đường qua từng điểm theo thứ tự đang hiển thị.
+ * Máy không có Google Maps lẫn trình duyệt thì báo bằng Toast thay vì để app văng.
+ */
+private fun openGoogleMaps(context: Context, start: GeoPoint, order: List<Place>, roundTrip: Boolean) {
     if (order.isEmpty()) return
     val stops = order.map { it.location }
-    val roundTrip = mode == RouteMode.ROUND_TRIP
     val destination = if (roundTrip) start else stops.last()
     val waypoints = (if (roundTrip) stops else stops.dropLast(1))
         .joinToString("%7C") { "${it.lat},${it.lng}" }
@@ -428,5 +379,9 @@ private fun openGoogleMaps(context: Context, start: GeoPoint, order: List<Place>
         if (waypoints.isNotEmpty()) append("&waypoints=$waypoints")
         append("&travelmode=driving")
     }
-    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    } catch (e: ActivityNotFoundException) {
+        Toast.makeText(context, "Máy chưa có Google Maps hoặc trình duyệt để dẫn đường.", Toast.LENGTH_LONG).show()
+    }
 }

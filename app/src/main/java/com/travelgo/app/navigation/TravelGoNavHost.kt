@@ -27,6 +27,8 @@ import com.travelgo.app.ui.explore.SearchResultScreen
 import com.travelgo.app.ui.home.HomeScreen
 import com.travelgo.app.ui.profile.ProfileScreen
 import com.travelgo.app.ui.route.SmartRouteScreen
+import com.travelgo.app.ui.route.SmartRouteViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun TravelGoApp() {
@@ -34,9 +36,15 @@ fun TravelGoApp() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showTabs = currentRoute != null && currentRoute in Routes.tabRoutes
-    // Đã đăng nhập từ lần trước thì vào thẳng Trang chủ.
+    // Đã đăng nhập và đã có vị trí từ lần trước thì vào thẳng Trang chủ.
+    // Đăng nhập rồi nhưng chưa có vị trí (tắt app giữa chừng) thì quay lại bước xin quyền vị trí,
+    // tránh vào Trang chủ với vị trí mặc định không đúng.
     val startDestination = remember {
-        if (AppContainer.authRepository.currentUser != null) Routes.HOME else Routes.LOGIN
+        when {
+            AppContainer.authRepository.currentUser == null -> Routes.LOGIN
+            AppContainer.locationProvider.currentLocation.value == null -> Routes.LOCATION_PERMISSION
+            else -> Routes.HOME
+        }
     }
 
     // Đã có quyền vị trí từ trước thì cập nhật GPS ngầm mỗi lần mở app.
@@ -82,10 +90,11 @@ fun TravelGoApp() {
                 LocationPickerScreen(
                     onBack = { navController.popBackStack() },
                     onPicked = {
-                        // Mở từ Trang chủ thì quay lại; mở từ màn 02 thì vào Trang chủ.
-                        val fromHome = navController.previousBackStackEntry?.destination?.route == Routes.HOME
-                        if (fromHome) navController.popBackStack()
-                        else navController.navigateHomeFrom(Routes.LOCATION_PERMISSION)
+                        // Mở từ màn 02 (lúc mới đăng nhập) thì vào Trang chủ; mở từ màn khác thì quay lại màn đó.
+                        val fromPermission =
+                            navController.previousBackStackEntry?.destination?.route == Routes.LOCATION_PERMISSION
+                        if (fromPermission) navController.navigateHomeFrom(Routes.LOCATION_PERMISSION)
+                        else navController.popBackStack()
                     },
                 )
             }
@@ -98,7 +107,10 @@ fun TravelGoApp() {
                 )
             }
             composable(Routes.EXPLORE) {
-                ExploreScreen(onOpenSearch = { navController.navigate(Routes.SEARCH) })
+                ExploreScreen(
+                    onOpenSearch = { navController.navigate(Routes.SEARCH) },
+                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) },
+                )
             }
             composable(Routes.PROFILE) {
                 ProfileScreen(
@@ -116,6 +128,7 @@ fun TravelGoApp() {
                 NearbyScreen(
                     onBack = { navController.popBackStack() },
                     onSmartRoute = { ids -> navController.navigate(Routes.smartRoute(ids)) },
+                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) },
                 )
             }
             composable(
@@ -126,7 +139,9 @@ fun TravelGoApp() {
                     ?.split(",")
                     ?.filter { it.isNotBlank() }
                     .orEmpty()
-                SmartRouteScreen(placeIds = ids, onBack = { navController.popBackStack() })
+                // ViewModel gắn với màn này: giữ chế độ và thứ tự tự xếp khi xoay máy / quay lại từ Google Maps.
+                val routeViewModel = viewModel(entry) { SmartRouteViewModel(placeIds = ids) }
+                SmartRouteScreen(viewModel = routeViewModel, onBack = { navController.popBackStack() })
             }
         }
     }

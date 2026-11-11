@@ -180,7 +180,7 @@ class OsmPlaceRepository(
                 address = r.address.ifBlank { fallbackAddress },
                 lat = r.lat,
                 lng = r.lng,
-                rating = r.rank(),
+                score = r.rank(),
                 stayMinutes = estimateStayMinutes(r.name, category),
                 imageUrl = r.image.ifBlank { info?.imageUrl?.takeIf { it.isNotBlank() } ?: WikipediaClient.imageFromTags(r.tags) },
                 tagline = r.tagline ?: OsmCategory.tagline(r.tags, category),
@@ -360,9 +360,10 @@ class OsmPlaceRepository(
 
         /** Thành phố nổi bật cho Trang chủ (cố định, ảnh có sẵn trong app). */
         val featured = listOf(
-            Place("c1", "Đà Nẵng", "thanh_pho", "Miền Trung", 16.0544, 108.2022, 4.8, 0, res("img_da_nang")),
-            Place("c2", "Nha Trang", "bien", "Khánh Hòa", 12.2388, 109.1967, 4.7, 0, res("img_nha_trang")),
-            Place("c3", "Hội An", "van_hoa", "Quảng Nam", 15.8801, 108.3380, 4.9, 0, res("img_hoi_an")),
+            // score = 5.0: đây là các điểm đến nổi bật do nhóm chọn, không phải điểm đánh giá.
+            Place("c1", "Đà Nẵng", "thanh_pho", "Miền Trung", 16.0544, 108.2022, 5.0, 0, res("img_da_nang")),
+            Place("c2", "Nha Trang", "bien", "Khánh Hòa", 12.2388, 109.1967, 5.0, 0, res("img_nha_trang")),
+            Place("c3", "Hội An", "van_hoa", "Quảng Nam", 15.8801, 108.3380, 5.0, 0, res("img_hoi_an")),
         )
     }
 }

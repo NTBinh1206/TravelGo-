@@ -26,7 +26,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,7 +42,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.travelgo.app.components.softShadow
-import com.travelgo.app.di.AppContainer
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.BlueLight
 import com.travelgo.app.ui.theme.Border
@@ -47,15 +49,19 @@ import com.travelgo.app.ui.theme.Danger
 import com.travelgo.app.ui.theme.DangerLight
 import com.travelgo.app.ui.theme.Muted
 import com.travelgo.app.ui.theme.Navy
-import kotlinx.coroutines.launch
 
 /** 05 · Cá nhân (Người 1). Thông tin lấy từ tài khoản Firebase đang đăng nhập. */
 @Composable
-fun ProfileScreen(onLogout: () -> Unit) {
-    val auth = AppContainer.authRepository
-    val user = auth.currentUser
+fun ProfileScreen(
+    onLogout: () -> Unit,
+    viewModel: ProfileViewModel = viewModel { ProfileViewModel() },
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val user = state.user
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    LaunchedEffect(state.signedOut) {
+        if (state.signedOut) onLogout()
+    }
     val name = user?.name ?: "Khách"
     val email = user?.email.orEmpty()
     val initials = name.split(" ").filter { it.isNotBlank() }.takeLast(2).joinToString("") { it.take(1) }.uppercase()
@@ -127,12 +133,7 @@ fun ProfileScreen(onLogout: () -> Unit) {
                 Icons.AutoMirrored.Outlined.Logout,
                 "Đăng xuất",
                 danger = true,
-                onClick = {
-                    scope.launch {
-                        auth.signOut(context)
-                        onLogout()
-                    }
-                },
+                onClick = { viewModel.signOut(context) },
             )
         }
         Spacer(Modifier.height(24.dp))

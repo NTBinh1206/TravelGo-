@@ -4,7 +4,7 @@ import com.travelgo.app.data.model.GeoPoint
 import java.text.Normalizer
 /**
  * QUY ƯỚC CHUNG: nơi lấy dữ liệu địa điểm.
- * Người 2 viết bản thật (Google Places API + cache Firestore) thay cho FakePlaceRepository.
+ * Bản thật: OsmPlaceRepository (bộ dữ liệu OpenStreetMap làm sẵn + Wikipedia + Nominatim).
  */
 interface PlaceRepository {
     /** Điểm du lịch quanh [center] trong bán kính [radiusKm] (Nearby Search). */
