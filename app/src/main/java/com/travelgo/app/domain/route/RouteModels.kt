@@ -15,4 +15,11 @@ data class RouteResult(
     val legKm: List<Double>,  // km từng chặng, chặng đầu tính từ vị trí người dùng
     val totalKm: Double,
     val totalMinutes: Int,    // thời gian di chuyển
-)
+    val returnKm: Double = 0.0, // chặng quay về điểm xuất phát (chỉ khi Khứ hồi)
+) {
+    /** Tổng thời gian tham quan ước lượng ở các điểm dừng. */
+    val stayMinutes: Int get() = order.sumOf { it.stayMinutes }
+
+    /** Cả chuyến = di chuyển + tham quan. */
+    val tripMinutes: Int get() = totalMinutes + stayMinutes
+}

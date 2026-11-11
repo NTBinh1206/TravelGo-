@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.Apartment
+import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Park
 import androidx.compose.material.icons.outlined.Terrain
@@ -27,11 +28,7 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Waves
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,23 +37,26 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.travelgo.app.components.FavoriteButton
+import com.travelgo.app.ui.common.EmptyActionButton
+import com.travelgo.app.ui.common.LoadStatus
+import com.travelgo.app.ui.common.NO_NEARBY_TEXT
+import com.travelgo.app.ui.common.dataOrNull
 import com.travelgo.app.components.PillChip
 import com.travelgo.app.components.PlaceRowCard
 import com.travelgo.app.components.SearchBarButton
 import com.travelgo.app.components.SquareIconButton
 import com.travelgo.app.components.softShadow
-import com.travelgo.app.data.model.GeoPoint
-import com.travelgo.app.di.AppContainer
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.Muted
 import com.travelgo.app.ui.theme.Navy
-import android.util.Log
 
 private data class Category(val key: String?, val label: String, val icon: ImageVector)
 
 private val categories = listOf(
-    Category(null, "Tất cả", Icons.Outlined.Waves),
+    Category(null, "Tất cả", Icons.Outlined.Explore),
     Category("bien", "Biển", Icons.Outlined.Waves),
     Category("nui", "Núi", Icons.Outlined.Terrain),
     Category("thanh_pho", "Thành phố", Icons.Outlined.Apartment),
@@ -64,29 +64,19 @@ private val categories = listOf(
     Category("thien_nhien", "Thiên nhiên", Icons.Outlined.Park),
 )
 
-enum class SortOption(val label: String) { NEAREST("Gần nhất"), TOP_RATED("Nổi bật") }
-
-/** 04 · Khám phá (Người 2). */
+/** 04 · Khám phá (Người 2). Lọc/sắp xếp nằm trong [ExploreViewModel], màn hình chỉ hiển thị. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ExploreScreen(onOpenSearch: () -> Unit) {
-    var category by remember { mutableStateOf<String?>(null) }
-    var sort by remember { mutableStateOf(SortOption.NEAREST) }
-    val location by AppContainer.locationProvider.currentLocation.collectAsState()
-    val me = location ?: GeoPoint.DEFAULT
-    val center = rememberSearchCenter(me)
-    val loader = rememberLoader(center) {
-        Log.d("TravelGo", "Tai lai dia diem quanh $center")
-        AppContainer.placeRepository.getNearbyPlaces(center)
-    }
-    val shown = loader.dataOrNull.orEmpty()
-        .filter { category == null || it.category == category }
-        .let { list ->
-            when (sort) {
-                SortOption.NEAREST -> list.sortedBy { me.distanceKmTo(it.location) }
-                SortOption.TOP_RATED -> list.sortedByDescending { it.rating }
-            }
-        }
+fun ExploreScreen(
+    onOpenSearch: () -> Unit,
+    onChangeLocation: () -> Unit,
+    viewModel: ExploreViewModel = viewModel { ExploreViewModel() },
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val me = state.me
+    val category = state.category
+    val sort = state.sort
+    val shown = state.places.dataOrNull.orEmpty()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
@@ -112,18 +102,25 @@ fun ExploreScreen(onOpenSearch: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 categories.forEach { c ->
-                    PillChip(label = c.label, icon = c.icon, selected = category == c.key, onClick = { category = c.key })
+                    PillChip(label = c.label, icon = c.icon, selected = category == c.key, onClick = { viewModel.selectCategory(c.key) })
                 }
             }
         }
-        item { SortBar(sort = sort, onChange = { sort = it }) }
+        item { SortBar(sort = sort, onChange = viewModel::selectSort) }
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
                 Text("Địa điểm phổ biến", color = Navy, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 Text("${shown.size} địa điểm", color = Muted, fontSize = 14.sp)
             }
         }
-        item { LoadStatus(loader.withData(shown), emptyText = "Không có địa điểm nào thuộc loại này quanh bạn.") }
+        item {
+            LoadStatus(
+                state = state.places,
+                onRetry = viewModel::retry,
+                emptyText = if (category != null) "Không có địa điểm nào thuộc loại này quanh bạn." else NO_NEARBY_TEXT,
+                emptyAction = { EmptyActionButton("Chọn vị trí khác", onChangeLocation) },
+            )
+        }
         items(shown, key = { it.id }) { place ->
             PlaceRowCard(
                 place = place,

@@ -15,7 +15,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.NearMe
-import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.Apartment
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Park
+import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.outlined.Terrain
+import androidx.compose.material.icons.outlined.Waves
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,30 +42,66 @@ import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.BlueLight
 import com.travelgo.app.ui.theme.Muted
 import com.travelgo.app.ui.theme.Navy
-import com.travelgo.app.ui.theme.StarYellow
 
-/** Ảnh địa điểm (link Google Places hoặc ảnh mẫu trong app). */
-@Composable
-fun PlaceImage(place: Place, modifier: Modifier = Modifier) {
-    AsyncImage(
-        model = place.imageUrl.ifBlank { null },
-        contentDescription = place.name,
-        contentScale = ContentScale.Crop,
-        modifier = modifier.background(BlueLight),
-    )
+/** Từ độ nổi bật này trở lên thì hiện nhãn "Nổi bật" (khoảng 9% điểm trong bộ dữ liệu). */
+const val FEATURED_SCORE = 4.0
+
+/** Biểu tượng theo loại địa điểm, dùng khi chưa có ảnh. */
+fun categoryIcon(category: String): ImageVector = when (category) {
+    "bien" -> Icons.Outlined.Waves
+    "nui" -> Icons.Outlined.Terrain
+    "van_hoa" -> Icons.Outlined.AccountBalance
+    "thanh_pho" -> Icons.Outlined.Apartment
+    "thien_nhien" -> Icons.Outlined.Park
+    else -> Icons.Outlined.Place
 }
 
+/**
+ * Ảnh địa điểm (Wikipedia/Wikimedia hoặc ảnh có sẵn trong app).
+ * Chưa có ảnh hoặc tải ảnh lỗi thì vẫn thấy biểu tượng theo loại, không còn ô trống trơn.
+ */
 @Composable
-fun RatingText(rating: Double, modifier: Modifier = Modifier) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
-        Icon(Icons.Outlined.StarOutline, contentDescription = null, tint = StarYellow, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(4.dp))
-        Text("$rating", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+fun PlaceImage(place: Place, modifier: Modifier = Modifier) {
+    Box(modifier.background(BlueLight), contentAlignment = Alignment.Center) {
+        Icon(
+            categoryIcon(place.category),
+            contentDescription = null,
+            tint = Blue.copy(alpha = 0.55f),
+            modifier = Modifier.size(30.dp),
+        )
+        if (place.imageUrl.isNotBlank()) {
+            AsyncImage(
+                model = place.imageUrl,
+                contentDescription = place.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize(),
+            )
+        }
     }
 }
 
 /**
- * Card ngang: ảnh bên trái, tên, mô tả, sao, khoảng cách (màn 04, 06, 07).
+ * Nhãn "Nổi bật" cho điểm có độ nổi bật cao.
+ * Thay cho ngôi sao + số trước đây: dữ liệu OpenStreetMap không có điểm đánh giá của người dùng,
+ * hiện sao sẽ khiến người xem tưởng là đánh giá thật.
+ */
+@Composable
+fun ScoreBadge(score: Double, modifier: Modifier = Modifier) {
+    if (score < FEATURED_SCORE) return
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .background(BlueLight, RoundedCornerShape(50))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+    ) {
+        Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = Blue, modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(4.dp))
+        Text("Nổi bật", color = Blue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/**
+ * Card ngang: ảnh bên trái, tên, mô tả, nhãn "Nổi bật", khoảng cách (màn 04, 06, 07).
  * [showPin]: hiện icon ghim trước mô tả. [arrowDistance]: hiện icon mũi tên trước km.
  */
 @Composable
@@ -108,7 +151,7 @@ fun PlaceRowCard(
             }
             Spacer(Modifier.weight(1f))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(end = 12.dp)) {
-                RatingText(place.rating)
+                ScoreBadge(place.score)
                 Spacer(Modifier.weight(1f))
                 if (distanceKm != null) {
                     if (arrowDistance) {
@@ -122,7 +165,7 @@ fun PlaceRowCard(
     }
 }
 
-/** Card dọc: ảnh lớn phía trên, nút tim, tên và sao bên dưới (Trang chủ, dạng lưới). */
+/** Card dọc: ảnh lớn phía trên (kèm nhãn "Nổi bật"), nút tim, tên bên dưới (Trang chủ, dạng lưới). */
 @Composable
 fun PlaceTileCard(
     place: Place,
@@ -141,6 +184,7 @@ fun PlaceTileCard(
     ) {
         Box {
             PlaceImage(place, Modifier.fillMaxWidth().height(138.dp))
+            ScoreBadge(place.score, Modifier.align(Alignment.TopStart).padding(10.dp))
             FavoriteButton(
                 bordered = false,
                 size = 40.dp,
@@ -158,7 +202,6 @@ fun PlaceTileCard(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                RatingText(place.rating)
             }
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {

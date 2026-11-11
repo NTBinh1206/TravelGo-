@@ -36,7 +36,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.travelgo.app.ui.common.LoadStatus
+import com.travelgo.app.ui.common.dataOrNull
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,46 +59,30 @@ import com.travelgo.app.components.PillChip
 import com.travelgo.app.components.PlaceRowCard
 import com.travelgo.app.components.PlaceTileCard
 import com.travelgo.app.components.softShadow
-import com.travelgo.app.data.model.GeoPoint
-import com.travelgo.app.data.place.Place
-import com.travelgo.app.di.AppContainer
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.Border
 import com.travelgo.app.ui.theme.Muted
 import com.travelgo.app.ui.theme.Navy
-import kotlinx.coroutines.delay
 
-private const val SEARCH_DEBOUNCE_MS = 400L
-
-/** 06 · Kết quả tìm kiếm (Người 2). */
+/** 06 · Kết quả tìm kiếm (Người 2). Tìm, lọc, sắp xếp nằm trong [SearchViewModel]. */
 @Composable
-fun SearchResultScreen(onBack: () -> Unit) {
-    var query by remember { mutableStateOf("") }
-    var gridMode by remember { mutableStateOf(false) }
-    var sortChip by remember { mutableStateOf("Liên quan") }
-    var filter by remember { mutableStateOf(SearchFilter()) }
+fun SearchResultScreen(
+    onBack: () -> Unit,
+    viewModel: SearchViewModel = viewModel { SearchViewModel() },
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val query = viewModel.query
+    val me = state.me
+    val filter = state.options.filter
+    val gridMode = state.options.gridMode
+    val results = state.results.dataOrNull.orEmpty()
+    // Bảng lọc đang mở hay đóng chỉ là trạng thái hiển thị, để ở màn hình.
     var showFilter by remember { mutableStateOf(false) }
-    val userLocation by AppContainer.locationProvider.currentLocation.collectAsState()
-    val me = userLocation ?: GeoPoint.DEFAULT
-    // Ngừng gõ một chút mới tìm: tìm trong bộ dữ liệu có sẵn nên rất nhanh.
-    // Mỗi lần gõ thêm chữ, lần chờ cũ bị huỷ và đếm lại từ đầu.
-    // (Nếu phải hỏi thêm Nominatim, repository tự giãn cách 1 giây/lần.)
-    val loader = rememberLoader(query) {
-        if (query.isBlank()) {
-            emptyList<Place>()
-        } else {
-            delay(SEARCH_DEBOUNCE_MS)
-            AppContainer.placeRepository.searchPlaces(query)
-        }
-    }
-    val found = loader.dataOrNull.orEmpty()
-    val filtered = found.applyFilter(filter, me)
-    val results = if (sortChip == "Gần nhất") filtered.sortedBy { me.distanceKmTo(it.location) } else filtered
 
     if (showFilter) {
         FilterSheet(
             current = filter,
-            onApply = { filter = it; showFilter = false },
+            onApply = { viewModel.applyFilter(it); showFilter = false },
             onDismiss = { showFilter = false },
         )
     }
@@ -109,7 +96,7 @@ fun SearchResultScreen(onBack: () -> Unit) {
         )
         SearchInput(
             value = query,
-            onValueChange = { query = it },
+            onValueChange = viewModel::onQueryChange,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp),
         )
         Row(
@@ -120,7 +107,7 @@ fun SearchResultScreen(onBack: () -> Unit) {
                 Text("${results.size} kết quả", color = Navy, fontSize = 19.sp)
                 Text("Toàn Việt Nam · ưu tiên gần bạn", color = Muted, fontSize = 13.sp)
             }
-            ViewToggle(gridMode = gridMode, onChange = { gridMode = it })
+            ViewToggle(gridMode = gridMode, onChange = viewModel::setGridMode)
         }
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -129,14 +116,14 @@ fun SearchResultScreen(onBack: () -> Unit) {
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
         ) {
-            PillChip("Liên quan", selected = sortChip == "Liên quan", onClick = { sortChip = "Liên quan" })
+            PillChip("Liên quan", selected = !state.options.nearestFirst, onClick = { viewModel.setNearestFirst(false) })
             PillChip(
                 label = if (filter.activeCount > 0) "Bộ lọc · ${filter.activeCount}" else "Bộ lọc",
                 icon = Icons.Outlined.Tune,
                 selected = filter.activeCount > 0,
                 onClick = { showFilter = true },
             )
-            PillChip("Gần nhất", selected = sortChip == "Gần nhất", onClick = { sortChip = "Gần nhất" })
+            PillChip("Gần nhất", selected = state.options.nearestFirst, onClick = { viewModel.setNearestFirst(true) })
         }
         if (query.isBlank()) {
             Text(
@@ -147,7 +134,8 @@ fun SearchResultScreen(onBack: () -> Unit) {
             )
         } else {
             LoadStatus(
-                loader.withData(results),
+                state = state.results,
+                onRetry = viewModel::retry,
                 emptyText = if (filter.activeCount > 0) {
                     "Không tìm thấy \"$query\" với bộ lọc hiện tại. Thử bỏ bớt bộ lọc."
                 } else {

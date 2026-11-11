@@ -8,8 +8,8 @@ import org.junit.Test
 
 class RouteFinderTest {
 
-    private fun p(id: String, lat: Double, lng: Double, rating: Double = 4.5) =
-        Place(id, id, "thanh_pho", "addr", lat, lng, rating, 30, "")
+    private fun p(id: String, lat: Double, lng: Double, score: Double = 4.5) =
+        Place(id, id, "thanh_pho", "addr", lat, lng, score, 30, "")
 
     private val start = GeoPoint(16.0, 108.0)
 
@@ -43,8 +43,8 @@ class RouteFinderTest {
     }
 
     @Test fun bestRated_putsHighRatingFirst_whereShortestDoesNot() {
-        val low = p("low", 16.0, 108.10, rating = 3.0)
-        val high = p("high", 16.0, 108.11, rating = 5.0)
+        val low = p("low", 16.0, 108.10, score = 3.0)
+        val high = p("high", 16.0, 108.11, score = 5.0)
         val shortest = findBestRoute(start, listOf(low, high), RouteMode.SHORTEST)
         val rated = findBestRoute(start, listOf(low, high), RouteMode.BEST_RATED)
         assertEquals("low", shortest.order.first().id)

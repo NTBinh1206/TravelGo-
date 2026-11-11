@@ -30,7 +30,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,9 +45,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.travelgo.app.components.CenterHeader
 import com.travelgo.app.components.softShadow
-import com.travelgo.app.data.location.noAccent
-import com.travelgo.app.data.location.vietnamProvinces
-import com.travelgo.app.di.AppContainer
 import com.travelgo.app.ui.theme.Background
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.BlueLight
@@ -60,10 +58,14 @@ import com.travelgo.app.ui.theme.Navy
  * Mở từ màn 02 (khi từ chối quyền / "Để sau") và khi bấm vào vị trí ở Trang chủ.
  */
 @Composable
-fun LocationPickerScreen(onBack: () -> Unit, onPicked: () -> Unit) {
-    val provider = AppContainer.locationProvider
-    val currentName by provider.placeName.collectAsState()
-    var query by remember { mutableStateOf("") }
+fun LocationPickerScreen(
+    onBack: () -> Unit,
+    onPicked: () -> Unit,
+    viewModel: LocationPickerViewModel = viewModel { LocationPickerViewModel() },
+) {
+    val currentName by viewModel.currentName.collectAsStateWithLifecycle()
+    val query = viewModel.query
+    // Thông báo lỗi GPS chỉ là trạng thái hiển thị tạm thời, để ở màn hình.
     var message by remember { mutableStateOf<String?>(null) }
 
     val locator = rememberGpsLocator { result ->
@@ -76,10 +78,7 @@ fun LocationPickerScreen(onBack: () -> Unit, onPicked: () -> Unit) {
         if (result == GpsResult.Success) onPicked()
     }
 
-    val list = remember(query) {
-        val q = query.trim().noAccent()
-        if (q.isEmpty()) vietnamProvinces else vietnamProvinces.filter { it.name.noAccent().contains(q) }
-    }
+    val list = viewModel.provinces
 
     Column(Modifier.fillMaxSize().background(Background).statusBarsPadding()) {
         CenterHeader(title = "Chọn vị trí", onBack = onBack)
@@ -129,7 +128,7 @@ fun LocationPickerScreen(onBack: () -> Unit, onPicked: () -> Unit) {
             Spacer(Modifier.height(18.dp))
             OutlinedTextField(
                 value = query,
-                onValueChange = { query = it },
+                onValueChange = viewModel::onQueryChange,
                 singleLine = true,
                 placeholder = { Text("Tìm tỉnh, thành phố", color = Muted) },
                 leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, tint = Muted) },
@@ -169,7 +168,7 @@ fun LocationPickerScreen(onBack: () -> Unit, onPicked: () -> Unit) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
-                            provider.updateLocation(province.center, province.name)
+                            viewModel.pick(province)
                             onPicked()
                         }
                         .padding(horizontal = 16.dp, vertical = 14.dp),

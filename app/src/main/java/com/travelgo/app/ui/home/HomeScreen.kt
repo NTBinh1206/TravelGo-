@@ -29,9 +29,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,45 +40,37 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.travelgo.app.R
+import com.travelgo.app.ui.common.EmptyActionButton
+import com.travelgo.app.ui.common.LoadStatus
+import com.travelgo.app.ui.common.NO_NEARBY_TEXT
+import com.travelgo.app.ui.common.dataOrNull
 import com.travelgo.app.components.PlaceTileCard
 import com.travelgo.app.components.SearchBarButton
 import com.travelgo.app.components.SectionHeader
 import com.travelgo.app.components.softShadow
-import com.travelgo.app.data.model.GeoPoint
-import com.travelgo.app.data.place.Place
-import com.travelgo.app.di.AppContainer
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.Muted
-import com.travelgo.app.ui.explore.LoadStatus
-import com.travelgo.app.ui.explore.rememberLoader
-import com.travelgo.app.ui.explore.rememberSearchCenter
 import com.travelgo.app.ui.theme.Navy
 
-private const val HOME_NEARBY_COUNT = 10
-
-/** 03 · Trang chủ (Người 2). */
+/**
+ * 03 · Trang chủ (Người 2). Màn hình chỉ hiển thị [HomeUiState] lấy từ [HomeViewModel]
+ * và báo sự kiện (bấm, thử lại) ngược lên; không tự gọi Repository.
+ */
 @Composable
 fun HomeScreen(
     onOpenSearch: () -> Unit,
     onOpenExplore: () -> Unit,
     onOpenNearby: () -> Unit,
     onChangeLocation: () -> Unit,
+    viewModel: HomeViewModel = viewModel { HomeViewModel() },
 ) {
-    val myLocation by AppContainer.locationProvider.currentLocation.collectAsState()
-    val placeName by AppContainer.locationProvider.placeName.collectAsState()
-    val featured by produceState(initialValue = emptyList<Place>()) {
-        value = AppContainer.placeRepository.getFeaturedDestinations()
-    }
-    // Vị trí đổi (GPS mới / chọn tỉnh khác, xa hơn 2 km) thì tải lại danh sách gần bạn.
-    val me = myLocation ?: GeoPoint.DEFAULT
-    val center = rememberSearchCenter(me)
-    val nearbyLoader = rememberLoader(center) {
-        AppContainer.placeRepository.getNearbyPlaces(center)
-            .sortedBy { me.distanceKmTo(it.location) }
-            .take(HOME_NEARBY_COUNT)
-    }
-    val nearby = nearbyLoader.dataOrNull.orEmpty()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val placeName = state.placeName
+    val featured = state.featured
+    val nearby = state.nearby.dataOrNull.orEmpty()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
@@ -144,7 +134,12 @@ fun HomeScreen(
             )
         }
         item {
-            LoadStatus(nearbyLoader, emptyText = "Chưa tìm thấy điểm du lịch nào quanh đây.")
+            LoadStatus(
+                state = state.nearby,
+                onRetry = viewModel::retry,
+                emptyText = NO_NEARBY_TEXT,
+                emptyAction = { EmptyActionButton("Chọn vị trí khác", onChangeLocation) },
+            )
         }
         item {
             LazyRow(

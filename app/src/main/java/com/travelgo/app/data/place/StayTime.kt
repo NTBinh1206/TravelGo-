@@ -19,6 +19,9 @@ private val keywordStay = listOf(
     listOf("thac", "hang", "suoi") to 90,
     listOf("cho") to 60,
     listOf("chua", "den", "dinh", "nha tho", "thanh duong") to 40,
+    // Công viên, vườn hoa trong phố: dạo một vòng là xong (trước đây rơi vào loại "thiên nhiên" = 120 phút).
+    listOf("cong vien", "vuon hoa", "pho di bo") to 40,
+    listOf("nha hat") to 30,
     listOf("cau", "quang truong") to 30,
 )
 
