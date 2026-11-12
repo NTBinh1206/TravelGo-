@@ -11,6 +11,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
@@ -23,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap
  *   chạy ngay, không cần mạng.
  * - Tìm kiếm: tìm ngay trong bộ dữ liệu (không dấu). Ít kết quả quá thì hỏi thêm Nominatim (OSM, cần mạng).
  * - Ảnh: điểm có bài Wikipedia / mã Wikidata thì hỏi Wikipedia (cần mạng; mạng chậm thì hiện thẻ trước, ảnh có ở lần sau).
+ * - Quán ăn, quán nước: hỏi Overpass quanh vị trí (cần mạng), giữ kết quả 30 phút. Xem [FoodPlaces].
  * - Lưu tạm mọi điểm đã trả về theo id, để màn Lộ trình (08) gọi getPlacesByIds() lấy lại được.
  */
 class OsmPlaceRepository(
@@ -34,6 +36,7 @@ class OsmPlaceRepository(
     private val byId = ConcurrentHashMap<String, Place>()
     private val wikiCache = ConcurrentHashMap<String, WikiInfo>()
     private val nominatimCache = ConcurrentHashMap<String, CacheEntry>()
+    private val foodCache = ConcurrentHashMap<String, Pair<Long, List<Place>>>()
 
     private val nominatimLock = Mutex()
     private var lastNominatimCall = 0L
@@ -125,11 +128,54 @@ class OsmPlaceRepository(
                 !byId.containsKey(id) && id.length > 1 && id[0] in "nwr" && id.drop(1).all(Char::isDigit)
             }
             if (stillMissing.isNotEmpty()) {
-                runCatching { buildPlaces(parseOverpass(postOverpass(lookupQuery(stillMissing)))) }
+                runCatching {
+                    val (food, others) = parseOverpass(postOverpass(lookupQuery(stillMissing)))
+                        .partition { FoodPlaces.categoryOf(it.tags) != null }
+                    food.mapNotNull { it.toFoodPlace() }.forEach { byId[it.id] = it }
+                    buildPlaces(others)
+                }
                     .onFailure { Log.w(TAG, "Không tải lại được $stillMissing", it) }
             }
         }
         return ids.mapNotNull { byId[it] }
+    }
+
+    // ---------------- Ăn uống ----------------
+
+    override suspend fun getFoodPlaces(center: GeoPoint): List<Place> {
+        // Làm tròn khoảng 1 km: xê dịch ít thì dùng lại kết quả cũ, không hỏi lại máy chủ.
+        val key = String.format(Locale.US, "%.2f,%.2f", center.lat, center.lng)
+        foodCache[key]?.let { (time, list) -> if (now() - time < CACHE_TTL_MS) return list }
+
+        val json = postOverpass(FoodPlaces.overpassQuery(center.lat, center.lng))
+        val places = withContext(Dispatchers.Default) {
+            parseOverpass(json)
+                .mapNotNull { it.toFoodPlace() }
+                .distinctBy { it.id }
+                .sortedBy { center.distanceKmTo(it.location) }
+                .take(FoodPlaces.MAX_RESULTS)
+        }
+        places.forEach { byId[it.id] = it }
+        foodCache[key] = now() to places
+        Log.d(TAG, "Ăn uống: ${places.size} quán quanh $center")
+        return places
+    }
+
+    /** null nếu không phải quán ăn uống. */
+    private fun RawPlace.toFoodPlace(): Place? {
+        val category = FoodPlaces.categoryOf(tags) ?: return null
+        return Place(
+            id = id,
+            name = name,
+            category = category,
+            address = FoodPlaces.address(tags).ifBlank { location.placeName.value.orEmpty() },
+            lat = lat,
+            lng = lng,
+            score = 0.0, // OSM không có điểm đánh giá quán
+            stayMinutes = FoodPlaces.stayMinutes(category),
+            imageUrl = WikipediaClient.imageFromTags(tags),
+            tagline = FoodPlaces.tagline(tags),
+        )
     }
 
     // ---------------- Trang chủ ----------------
@@ -221,7 +267,7 @@ class OsmPlaceRepository(
         return "[out:json][timeout:25];(${part('n', "node")}${part('w', "way")}${part('r', "relation")});out center tags;"
     }
 
-    /** Chỉ dùng khi lấy lại điểm theo id mà bộ dữ liệu không có. Lỗi thì thử máy chủ dự phòng. */
+    /** Lấy quán ăn uống, hoặc lấy lại điểm theo id mà bộ dữ liệu không có. Lỗi thì thử máy chủ dự phòng. */
     private suspend fun postOverpass(query: String): String {
         var last: Exception? = null
         for (server in OVERPASS_SERVERS) {
@@ -354,6 +400,7 @@ class OsmPlaceRepository(
         val OVERPASS_SERVERS = listOf(
             "https://overpass-api.de/api/interpreter",
             "https://overpass.kumi.systems/api/interpreter",
+            "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
         )
 
         private fun res(name: String) = "android.resource://com.travelgo.app/drawable/$name"

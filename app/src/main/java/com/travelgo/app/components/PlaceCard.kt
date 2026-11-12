@@ -18,8 +18,10 @@ import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.LocalCafe
 import androidx.compose.material.icons.outlined.Park
 import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.Terrain
 import androidx.compose.material.icons.outlined.Waves
 import androidx.compose.material3.Icon
@@ -37,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.travelgo.app.data.model.formatKm
+import com.travelgo.app.data.place.FoodPlaces
 import com.travelgo.app.data.place.Place
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.BlueLight
@@ -53,6 +56,8 @@ fun categoryIcon(category: String): ImageVector = when (category) {
     "van_hoa" -> Icons.Outlined.AccountBalance
     "thanh_pho" -> Icons.Outlined.Apartment
     "thien_nhien" -> Icons.Outlined.Park
+    FoodPlaces.QUAN_AN -> Icons.Outlined.Restaurant
+    FoodPlaces.QUAN_NUOC -> Icons.Outlined.LocalCafe
     else -> Icons.Outlined.Place
 }
 

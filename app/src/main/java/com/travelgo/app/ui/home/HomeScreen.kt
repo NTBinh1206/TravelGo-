@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +48,7 @@ import com.travelgo.app.ui.common.EmptyActionButton
 import com.travelgo.app.ui.common.LoadStatus
 import com.travelgo.app.ui.common.NO_NEARBY_TEXT
 import com.travelgo.app.ui.common.dataOrNull
+import com.travelgo.app.ui.common.openPlaceInGoogleMaps
 import com.travelgo.app.components.PlaceTileCard
 import com.travelgo.app.components.SearchBarButton
 import com.travelgo.app.components.SectionHeader
@@ -71,6 +73,8 @@ fun HomeScreen(
     val placeName = state.placeName
     val featured = state.featured
     val nearby = state.nearby.dataOrNull.orEmpty()
+    val food = state.food.dataOrNull.orEmpty()
+    val context = LocalContext.current
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
@@ -148,6 +152,30 @@ fun HomeScreen(
             ) {
                 items(nearby, key = { it.id }) { place ->
                     PlaceTileCard(place = place, onClick = { /* TODO(Người 2): mở chi tiết */ })
+                }
+            }
+        }
+        item {
+            SectionHeader(
+                "Ăn uống quanh bạn", "Xem tất cả", onOpenExplore,
+                Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
+            )
+        }
+        item {
+            LoadStatus(
+                state = state.food,
+                onRetry = viewModel::retry,
+                emptyText = "Chưa tìm thấy quán ăn, quán nước nào quanh bạn trên OpenStreetMap.",
+            )
+        }
+        item {
+            LazyRow(
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                items(food, key = { it.id }) { place ->
+                    // Chạm vào quán: mở Google Maps để xem ảnh, điểm sao và bình luận.
+                    PlaceTileCard(place = place, subtitle = place.tagline, onClick = { openPlaceInGoogleMaps(context, place) })
                 }
             }
         }
