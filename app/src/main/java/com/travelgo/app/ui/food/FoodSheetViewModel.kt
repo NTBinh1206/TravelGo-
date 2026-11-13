@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelgo.app.data.place.ClosedReportRepository
 import com.travelgo.app.data.place.Place
+import com.travelgo.app.data.place.ReportClosedException
 import com.travelgo.app.di.AppContainer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +33,7 @@ class FoodSheetViewModel(
             val result = reports.reportClosed(place)
             _uiState.value = result.fold(
                 onSuccess = { count -> FoodSheetUiState(reported = true, message = thanks(count)) },
-                onFailure = { e -> FoodSheetUiState(message = e.message?.takeIf { it.startsWith("Bạn cần") } ?: FAILED) },
+                onFailure = { e -> FoodSheetUiState(message = (e as? ReportClosedException)?.message ?: FAILED) },
             )
         }
     }

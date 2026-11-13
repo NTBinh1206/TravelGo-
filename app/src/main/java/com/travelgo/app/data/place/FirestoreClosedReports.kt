@@ -5,6 +5,7 @@ import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -73,7 +74,7 @@ class FirestoreClosedReports(
     }
 
     override suspend fun reportClosed(place: Place): Result<Int> = runCatching {
-        val me = auth.currentUser?.uid ?: error("Bạn cần đăng nhập để báo quán đã đóng cửa.")
+        val me = auth.currentUser?.uid ?: throw ReportClosedException("Bạn cần đăng nhập để báo quán đã đóng cửa.")
         val ref = db.collection(COLLECTION).document(place.id)
         // Giao dịch: đọc rồi ghi cùng lúc, hai người báo cùng một quán một lúc vẫn đếm đúng.
         db.runTransaction { tx ->
@@ -100,6 +101,15 @@ class FirestoreClosedReports(
                 }
             }
         }.awaitResult()
+    }.recoverCatching { e ->
+        Log.w(TAG, "Báo quán ${place.id} đã đóng cửa thất bại", e)
+        throw when ((e as? FirebaseFirestoreException)?.code) {
+            FirebaseFirestoreException.Code.PERMISSION_DENIED ->
+                ReportClosedException("Máy chủ chưa cho phép báo quán (kiểm tra luật Firestore).", e)
+            FirebaseFirestoreException.Code.UNAVAILABLE ->
+                ReportClosedException("Không kết nối được máy chủ, kiểm tra mạng rồi thử lại.", e)
+            else -> e
+        }
     }
 
     private companion object {

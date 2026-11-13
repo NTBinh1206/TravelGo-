@@ -37,6 +37,9 @@ interface ClosedReportRepository {
     }
 }
 
+/** Lỗi khi báo quán, kèm câu giải thích hiện cho người dùng. */
+class ReportClosedException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
 /** Lưu trong bộ nhớ, dùng cho unit test và khi chạy với dữ liệu mẫu. */
 class InMemoryClosedReports(private val myUid: String = "me") : ClosedReportRepository {
     private val reporters = MutableStateFlow<Map<String, List<String>>>(emptyMap())
