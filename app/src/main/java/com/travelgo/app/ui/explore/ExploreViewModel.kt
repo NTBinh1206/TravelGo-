@@ -18,15 +18,29 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 enum class SortOption(val label: String) { NEAREST("Gần nhất"), TOP_SCORE("Nổi bật") }
 
 /** Chip "Ăn uống" ở Khám phá: gồm cả quán ăn và quán nước. */
 const val FOOD_GROUP = "an_uong"
+
+/**
+ * Màn khác muốn mở Khám phá ở sẵn một nhóm, ví dụ Trang chủ bấm "Xem tất cả" ở mục Ăn uống.
+ * Khám phá là một tab nên không truyền tham số điều hướng được; ViewModel đọc yêu cầu này rồi xoá đi.
+ */
+object ExploreRequest {
+    internal val category = MutableStateFlow<String?>(null)
+
+    fun open(category: String) {
+        this.category.value = category
+    }
+}
 
 /** Lọc thêm khi đang xem Ăn uống. */
 enum class FoodKind(val label: String, val category: String?) {
@@ -56,6 +70,15 @@ class ExploreViewModel(
     private val sort = MutableStateFlow(SortOption.NEAREST)
     private val foodKind = MutableStateFlow(FoodKind.ALL)
     private val retry = MutableStateFlow(0)
+
+    init {
+        viewModelScope.launch {
+            ExploreRequest.category.filterNotNull().collect { requested ->
+                category.value = requested
+                ExploreRequest.category.value = null
+            }
+        }
+    }
 
     private val nearby = combine(location.currentLocation.anchored(), retry) { center, _ -> center }
         .flatMapLatest { center -> loadFlow { placeRepository.getNearbyPlaces(center) } }

@@ -60,6 +60,16 @@ class ExploreViewModelFoodTest {
         assertEquals(listOf("f2"), places.map { it.id })
     }
 
+    @Test fun requestFromHome_opensFoodChip() = runTest {
+        ExploreRequest.open(FOOD_GROUP)
+        val vm = newViewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.isFood)
+        assertEquals(null, ExploreRequest.category.value) // yêu cầu chỉ dùng một lần
+    }
+
     @Test fun otherChips_neverShowFoodPlaces() = runTest {
         val vm = newViewModel()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }

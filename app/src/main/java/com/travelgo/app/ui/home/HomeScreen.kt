@@ -49,6 +49,8 @@ import com.travelgo.app.ui.common.LoadStatus
 import com.travelgo.app.ui.common.NO_NEARBY_TEXT
 import com.travelgo.app.ui.common.dataOrNull
 import com.travelgo.app.ui.common.openPlaceInGoogleMaps
+import com.travelgo.app.ui.explore.ExploreRequest
+import com.travelgo.app.ui.explore.FOOD_GROUP
 import com.travelgo.app.components.PlaceTileCard
 import com.travelgo.app.components.SearchBarButton
 import com.travelgo.app.components.SectionHeader
@@ -157,7 +159,11 @@ fun HomeScreen(
         }
         item {
             SectionHeader(
-                "Ăn uống quanh bạn", "Xem tất cả", onOpenExplore,
+                "Ăn uống quanh bạn", "Xem tất cả",
+                {
+                    ExploreRequest.open(FOOD_GROUP) // mở Khám phá ở sẵn chip "Ăn uống"
+                    onOpenExplore()
+                },
                 Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
             )
         }
