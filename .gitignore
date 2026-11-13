@@ -13,3 +13,4 @@ app/google-services.json
 # Dữ liệu quán ăn thô tải từ Overpass (lớn, tạo lại được bằng tools/build_food_vn.py)
 tools/food_raw_parts/
 tools/food_vn_raw.tsv
+__pycache__/
