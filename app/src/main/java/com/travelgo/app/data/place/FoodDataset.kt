@@ -18,7 +18,7 @@ import java.io.FileNotFoundException
  */
 internal class FoodDataset(private val context: Context) {
 
-    /** Một quán: [tags] gồm amenity, cuisine để FoodPlaces tính loại quán và nhãn món. */
+    /** Một quán: [tags] gồm name, amenity, cuisine để FoodPlaces tính loại quán, nhãn món và lọc quán đã đóng. */
     class Entry(
         val id: String,
         val name: String,
@@ -85,6 +85,7 @@ internal class FoodDataset(private val context: Context) {
                 val lng = c[6].toDoubleOrNull() ?: return@forEach
                 if (c[0].isBlank() || c[1].isBlank()) return@forEach
                 val tags = buildMap {
+                    put("name", c[1])
                     put("amenity", c[2])
                     if (c[3].isNotBlank()) put("cuisine", c[3])
                 }

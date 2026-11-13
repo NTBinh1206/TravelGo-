@@ -142,7 +142,7 @@ class OsmPlaceRepository(
             if (stillMissing.isNotEmpty()) {
                 runCatching {
                     val (food, others) = parseOverpass(postOverpass(lookupQuery(stillMissing)))
-                        .partition { FoodPlaces.categoryOf(it.tags) != null }
+                        .partition { FoodPlaces.isFoodAmenity(it.tags) } // quán đã đóng cửa thì bỏ hẳn
                     food.mapNotNull { it.toFoodPlace() }.forEach { byId[it.id] = it }
                     buildPlaces(others)
                 }

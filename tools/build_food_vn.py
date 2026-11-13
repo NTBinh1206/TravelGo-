@@ -132,13 +132,27 @@ def address(r: dict) -> str:
     return ", ".join(out)
 
 
+CLOSED_HINTS = ("đã đóng cửa", "ngừng kinh doanh", "ngừng hoạt động", "tạm ngừng", "closed")
+
+
+def is_closed(r: dict, name: str) -> bool:
+    """Cùng quy tắc với FoodPlaces.isClosed() trong app: bỏ quán OSM ghi là đã đóng cửa."""
+    import re
+    if (r.get("opening_hours") or "").strip().lower() in ("closed", "off"):
+        return True
+    if (r.get("end_date") or "").strip():
+        return True
+    low = name.lower()
+    return any(re.search(r"(?<!\w)" + re.escape(h) + r"(?!\w)", low) for h in CLOSED_HINTS)
+
+
 def clean(s: str) -> str:
     return " ".join((s or "").replace("\t", " ").split())
 
 
 def build(raw: str) -> None:
     reader = csv.DictReader(io.StringIO(raw), delimiter="\t", quoting=csv.QUOTE_NONE)
-    seen, out = set(), []
+    seen, out, closed = set(), [], 0
     for r in reader:
         kind = (r.get("@type") or "")[:1]
         if kind not in ("n", "w", "r"):
@@ -150,6 +164,9 @@ def build(raw: str) -> None:
         except (KeyError, TypeError, ValueError):
             continue
         if not name or pid in seen:
+            continue
+        if is_closed(r, name):
+            closed += 1
             continue
         seen.add(pid)
         out.append([pid, name, clean(r.get("amenity")), clean(r.get("cuisine")).lower(), clean(address(r)),
@@ -165,7 +182,7 @@ def build(raw: str) -> None:
     size = os.path.getsize(ASSET_OUT)
     zipped = len(gzip.compress(open(ASSET_OUT, "rb").read()))
     print()
-    print(f"Xong: {len(out):,} quán -> {os.path.normpath(ASSET_OUT)}")
+    print(f"Xong: {len(out):,} quán -> {os.path.normpath(ASSET_OUT)} (bỏ {closed} quán ghi là đã đóng cửa)")
     print(f"Dung lượng file: {size / 1e6:.1f} MB, nén trong APK khoảng {zipped / 1e6:.1f} MB")
     by = {}
     for row in out:

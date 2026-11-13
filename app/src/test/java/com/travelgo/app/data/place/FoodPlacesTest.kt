@@ -1,6 +1,7 @@
 package com.travelgo.app.data.place
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -24,6 +25,44 @@ class FoodPlacesTest {
             FoodPlaces.tagline(mapOf("amenity" to "restaurant", "cuisine" to "vietnamese;seafood;unknown")))
         assertEquals("Quán cà phê", FoodPlaces.tagline(mapOf("amenity" to "cafe", "cuisine" to "coffee_shop")))
         assertEquals("Đồ ăn nhanh", FoodPlaces.tagline(mapOf("amenity" to "fast_food")))
+    }
+
+    @Test fun categoryOf_trustsShopNameOverWrongAmenity() {
+        // Tiệm trà sữa, cà phê bị gắn nhầm restaurant trên OSM: theo tên quán thì là quán nước.
+        assertEquals(FoodPlaces.QUAN_NUOC,
+            FoodPlaces.categoryOf(mapOf("amenity" to "restaurant", "name" to "Trà sữa Healthy Lick N Bite")))
+        assertEquals(FoodPlaces.QUAN_NUOC, FoodPlaces.categoryOf(mapOf("amenity" to "restaurant", "name" to "Cộng Coffee")))
+        assertEquals("Tiệm trà sữa", FoodPlaces.tagline(mapOf("amenity" to "restaurant", "name" to "TRÀ SỮA BOBA")))
+        // "Cafe" nằm trong từ khác thì không tính.
+        assertEquals(FoodPlaces.QUAN_AN, FoodPlaces.categoryOf(mapOf("amenity" to "restaurant", "name" to "Cafeteria Lan")))
+        assertEquals(FoodPlaces.QUAN_AN, FoodPlaces.categoryOf(mapOf("amenity" to "restaurant", "name" to "Phở Hùng")))
+    }
+
+    @Test fun closedShops_areDropped() {
+        assertTrue(FoodPlaces.isClosed(mapOf("amenity" to "cafe", "name" to "Cafe Mộc (đã đóng cửa)")))
+        assertTrue(FoodPlaces.isClosed(mapOf("amenity" to "restaurant", "name" to "Bếp Nhà - Ngừng kinh doanh")))
+        assertTrue(FoodPlaces.isClosed(mapOf("amenity" to "restaurant", "name" to "Quán A", "opening_hours" to "closed")))
+        assertTrue(FoodPlaces.isClosed(mapOf("amenity" to "restaurant", "name" to "Quán B", "end_date" to "2024")))
+        assertNull(FoodPlaces.categoryOf(mapOf("amenity" to "cafe", "name" to "Cafe Mộc (đã đóng cửa)")))
+        assertFalse(FoodPlaces.isClosed(mapOf("amenity" to "restaurant", "name" to "Bánh canh cua Đồng Khởi")))
+        assertFalse(FoodPlaces.isClosed(mapOf("amenity" to "cafe", "name" to "Cafe Cửa Đông")))
+    }
+
+    @Test fun dishOf_guessesFromNameAndTagline() {
+        assertEquals(FoodPlaces.Dish.TRA_SUA, FoodPlaces.dishOf("Trà sữa Phúc Long", "", FoodPlaces.QUAN_NUOC))
+        assertEquals(FoodPlaces.Dish.CA_PHE, FoodPlaces.dishOf("Highlands Coffee", "Quán cà phê", FoodPlaces.QUAN_NUOC))
+        assertEquals(FoodPlaces.Dish.PHO_BUN, FoodPlaces.dishOf("Phở Thìn", "Quán ăn", FoodPlaces.QUAN_AN))
+        assertEquals(FoodPlaces.Dish.PHO_BUN, FoodPlaces.dishOf("Bún chả Hương Liên", "Quán ăn", FoodPlaces.QUAN_AN))
+        assertEquals(FoodPlaces.Dish.HAI_SAN, FoodPlaces.dishOf("Bé Mặn", "Quán ăn · Hải sản", FoodPlaces.QUAN_AN))
+        assertEquals(FoodPlaces.Dish.LAU_NUONG, FoodPlaces.dishOf("Lẩu dê 404", "Quán ăn", FoodPlaces.QUAN_AN))
+        assertEquals(FoodPlaces.Dish.GA_RAN, FoodPlaces.dishOf("KFC Lê Lợi", "Đồ ăn nhanh", FoodPlaces.QUAN_AN))
+        assertEquals(FoodPlaces.Dish.KEM, FoodPlaces.dishOf("Bạch Đằng", "Quán kem", FoodPlaces.QUAN_NUOC))
+        // Không đoán được thì theo loại quán.
+        assertEquals(FoodPlaces.Dish.QUAN_AN, FoodPlaces.dishOf("Nhà hàng Ngon", "Quán ăn", FoodPlaces.QUAN_AN))
+        assertEquals(FoodPlaces.Dish.NUOC, FoodPlaces.dishOf("Góc Phố", "", FoodPlaces.QUAN_NUOC))
+        // "Phố" không phải "phở"; tên gõ không dấu vẫn nhận ra.
+        assertEquals(FoodPlaces.Dish.QUAN_AN, FoodPlaces.dishOf("Nhà hàng Phố Biển", "Quán ăn", FoodPlaces.QUAN_AN))
+        assertEquals(FoodPlaces.Dish.PHO_BUN, FoodPlaces.dishOf("Pho Hung", "Quán ăn", FoodPlaces.QUAN_AN))
     }
 
     @Test fun address_usesStreetThenDistrict() {
