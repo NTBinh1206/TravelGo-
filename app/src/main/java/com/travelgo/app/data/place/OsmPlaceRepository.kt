@@ -39,6 +39,8 @@ class OsmPlaceRepository(
     private val foodCache = ConcurrentHashMap<String, Pair<Long, List<Place>>>()
 
     private val nominatimLock = Mutex()
+    /** Trang chủ và Khám phá cùng hỏi quán một lúc: người sau chờ người trước rồi dùng lại kết quả, không gửi 2 lần. */
+    private val foodLock = Mutex()
     private var lastNominatimCall = 0L
 
     // Tải ảnh Wikipedia chạy nền: màn hình không phải chờ, ảnh về thì lưu lại cho lần sau.
@@ -142,10 +144,10 @@ class OsmPlaceRepository(
 
     // ---------------- Ăn uống ----------------
 
-    override suspend fun getFoodPlaces(center: GeoPoint): List<Place> {
+    override suspend fun getFoodPlaces(center: GeoPoint): List<Place> = foodLock.withLock {
         // Làm tròn khoảng 1 km: xê dịch ít thì dùng lại kết quả cũ, không hỏi lại máy chủ.
         val key = String.format(Locale.US, "%.2f,%.2f", center.lat, center.lng)
-        foodCache[key]?.let { (time, list) -> if (now() - time < CACHE_TTL_MS) return list }
+        foodCache[key]?.let { (time, list) -> if (now() - time < CACHE_TTL_MS) return@withLock list }
 
         val json = postOverpass(FoodPlaces.overpassQuery(center.lat, center.lng))
         val places = withContext(Dispatchers.Default) {
@@ -158,7 +160,7 @@ class OsmPlaceRepository(
         places.forEach { byId[it.id] = it }
         foodCache[key] = now() to places
         Log.d(TAG, "Ăn uống: ${places.size} quán quanh $center")
-        return places
+        places
     }
 
     /** null nếu không phải quán ăn uống. */
