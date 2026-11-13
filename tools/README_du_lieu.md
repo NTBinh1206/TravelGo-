@@ -28,12 +28,13 @@ Dữ liệu © OpenStreetMap contributors (giấy phép ODbL). Ảnh và mô t�
 ## Quán ăn, quán nước (`food_vn.tsv`)
 
 Mục "Ăn uống" đọc `app/src/main/assets/food_vn.tsv` (`data/place/FoodDataset.kt`), không phải chờ Overpass.
+File chỉ phủ khoảng 8–13 km quanh trung tâm mỗi tỉnh (đúng chỗ app đặt vị trí khi người dùng chọn tỉnh).
 Chưa có file này, hoặc quanh vị trí không có quán nào trong file, app mới hỏi Overpass trực tiếp.
 
 | File | Là gì |
 |---|---|
-| `tools/food_vn_query.overpassql` | Câu truy vấn quán ăn, quán nước (`{{bbox}}` được thay bằng từng dải vĩ độ) |
-| `tools/build_food_vn.py` | Tải theo 16 dải vĩ độ (Bắc → Nam), gộp lại, bỏ trùng, ghi `food_vn.tsv` |
+| `tools/food_vn_query.overpassql` | Câu truy vấn quán ăn, quán nước (`{{bbox}}` được thay bằng ô quanh từng tỉnh) |
+| `tools/build_food_vn.py` | Tải quán quanh trung tâm 34 tỉnh thành + Hội An, Vũng Tàu, Phan Thiết; gộp, bỏ trùng, ghi `food_vn.tsv` |
 | `app/src/main/assets/food_vn.tsv` | File app đọc |
 
 Cột của `food_vn.tsv`: `id name amenity cuisine address lat lng`. Loại quán (quán ăn / quán nước) và
@@ -45,5 +46,5 @@ Tạo / cập nhật (ở thư mục gốc project, cần Python 3.7+, không c�
 python tools/build_food_vn.py
 ```
 
-Mạng rớt giữa chừng thì chạy lại lệnh trên: dải nào đã tải xong (lưu trong `tools/food_raw_parts/`) được bỏ qua.
+Máy chủ lỗi hay mạng rớt giữa chừng thì chạy lại lệnh trên: vùng nào đã tải xong (lưu trong `tools/food_raw_parts/`) được bỏ qua.
 Muốn tải lại từ đầu thì xoá thư mục `tools/food_raw_parts/`.

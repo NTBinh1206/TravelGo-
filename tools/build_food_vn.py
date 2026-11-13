@@ -5,8 +5,10 @@ Cách dùng (chạy ở thư mục gốc project):
     python tools/build_food_vn.py --raw tools/food_vn_raw.tsv   # đã có file thô (vd. tải bằng overpass-turbo.eu)
 
 - Chỉ dùng thư viện có sẵn của Python 3 (không cần pip install).
-- Tải theo từng dải vĩ độ (Bắc → Nam) để mỗi lần hỏi máy chủ không quá lớn; dải nào xong được lưu lại
-  trong tools/food_raw_parts/, chạy lại sẽ bỏ qua dải đã có (mạng rớt giữa chừng không phải tải lại từ đầu).
+- Chỉ lấy quán quanh trung tâm 34 tỉnh thành (đúng toạ độ app dùng khi người dùng chọn tỉnh, xem
+  data/location/Provinces.kt) và vài điểm du lịch lớn. Mỗi vùng là một ô nhỏ nên máy chủ Overpass trả lời nhanh;
+  hỏi cả nước một lần thì máy chủ hay báo 502/504. Nơi khác app tự hỏi Overpass khi cần.
+- Vùng nào xong được lưu trong tools/food_raw_parts/, chạy lại sẽ bỏ qua vùng đã có.
 - Cột của food_vn.tsv: id name amenity cuisine address lat lng
   Loại quán, nhãn món do app tự tính từ amenity + cuisine (data/place/FoodPlaces.kt), không tính ở đây.
 """
@@ -33,19 +35,44 @@ SERVERS = [
     "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
 ]
 
-# Việt Nam nằm trong khoảng vĩ độ 8.2–23.5, kinh độ 102.1–109.7. Cắt thành các dải 1 độ vĩ.
-LAT_BANDS = [(lat, lat + 1.0) for lat in range(8, 24)]
-LNG_MIN, LNG_MAX = 102.0, 110.0
+PROVINCES_KT = os.path.join(HERE, "..", "app", "src", "main", "java", "com", "travelgo", "app", "data",
+                            "location", "Provinces.kt")
+# Điểm du lịch lớn không trùng trung tâm tỉnh (toạ độ lấy từ app: OsmPlaceRepository / places_vn.tsv).
+EXTRA_AREAS = [
+    ("Hội An", 15.8801, 108.3380),
+    ("Vũng Tàu", 10.3479, 107.0745),
+    ("Phan Thiết", 10.9296, 108.1044),
+]
+BIG_CITIES = {"Hà Nội", "TP. Hồ Chí Minh"}
+HALF_BIG, HALF = 0.12, 0.07   # nửa cạnh ô (độ): khoảng 13 km và 8 km
+
+
+def areas():
+    """[(tên, lat, lng)] đọc từ Provinces.kt để luôn khớp với app."""
+    import re
+    text = open(PROVINCES_KT, encoding="utf-8").read()
+    found = [(n, float(a), float(b)) for n, a, b in
+             re.findall(r'Province\("([^"]+)",\s*GeoPoint\(([\d.]+),\s*([\d.]+)\)\)', text)]
+    if not found:
+        sys.exit(f"Không đọc được danh sách tỉnh trong {PROVINCES_KT}")
+    return found + EXTRA_AREAS
+
+
+def slug(name: str) -> str:
+    import unicodedata
+    s = unicodedata.normalize("NFD", name)
+    s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn").replace("đ", "d").replace("Đ", "D")
+    return "".join(ch if ch.isalnum() else "_" for ch in s.lower()).strip("_")
 
 
 def fetch(query: str) -> str:
     data = urllib.parse.urlencode({"data": query}).encode()
     last = None
-    for attempt in range(3):
+    for attempt in range(2):
         for server in SERVERS:
             try:
                 req = urllib.request.Request(server, data=data, headers={"User-Agent": "TravelGo-build-food/1.0"})
-                with urllib.request.urlopen(req, timeout=700) as r:
+                with urllib.request.urlopen(req, timeout=200) as r:
                     text = r.read().decode("utf-8")
                 if "runtime error" in text[:2000] or text.lstrip().startswith("<"):
                     raise RuntimeError(text[:300])
@@ -62,12 +89,20 @@ def download() -> str:
     template = open(QUERY_FILE, encoding="utf-8").read()
     os.makedirs(PARTS_DIR, exist_ok=True)
     header, rows = None, []
-    for i, (s, n) in enumerate(LAT_BANDS, 1):
-        part = os.path.join(PARTS_DIR, f"band_{s:02d}.tsv")
+    todo = areas()
+    failed = []
+    for i, (name, lat, lng) in enumerate(todo, 1):
+        part = os.path.join(PARTS_DIR, f"{slug(name)}.tsv")
         if not os.path.exists(part):
-            print(f"[{i}/{len(LAT_BANDS)}] Tải dải vĩ độ {s}–{n}…", flush=True)
+            h = HALF_BIG if name in BIG_CITIES else HALF
+            print(f"[{i}/{len(todo)}] Tải quán quanh {name}…", flush=True)
             started = time.time()
-            text = fetch(template.replace("{{bbox}}", f"({s},{LNG_MIN},{n},{LNG_MAX})"))
+            try:
+                text = fetch(template.replace("{{bbox}}", f"({lat - h:.4f},{lng - h:.4f},{lat + h:.4f},{lng + h:.4f})"))
+            except RuntimeError as e:
+                print(f"    bỏ qua {name} lần này ({str(e)[:80]}), chạy lại lệnh sau để tải tiếp", flush=True)
+                failed.append(name)
+                continue
             with open(part, "w", encoding="utf-8", newline="") as f:
                 f.write(text)
             print(f"    xong {text.count(chr(10)) - 1} quán trong {time.time() - started:.0f} giây", flush=True)
@@ -76,6 +111,8 @@ def download() -> str:
         if lines:
             header = header or lines[0]
             rows += lines[1:]
+    if failed:
+        print(f"\nChưa tải được {len(failed)} vùng: {', '.join(failed)}. Chạy lại lệnh để tải tiếp các vùng này.")
     raw = "\n".join([header or ""] + rows) + "\n"
     with open(RAW_OUT, "w", encoding="utf-8", newline="") as f:
         f.write(raw)
