@@ -10,11 +10,14 @@ import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -64,7 +67,12 @@ class FirestoreClosedReports(
         }
         registration = db.collection(COLLECTION).addSnapshotListener { snapshot, error ->
             if (error != null) {
-                Log.w(TAG, "Không đọc được danh sách quán bị báo đóng cửa", error)
+                // Firestore dừng hẳn listener khi lỗi (mất mạng lâu, luật chưa cho đọc…), nên thử nghe lại sau ít giây.
+                Log.w(TAG, "Không đọc được danh sách quán bị báo đóng cửa, thử lại sau", error)
+                scope.launch {
+                    delay(RETRY_MS)
+                    if (myUid.value == uid) listen(uid)
+                }
                 return@addSnapshotListener
             }
             reporters.value = snapshot?.documents.orEmpty().associate { doc ->
@@ -100,7 +108,10 @@ class FirestoreClosedReports(
                     1
                 }
             }
-        }.awaitResult()
+        }.awaitResult().also {
+            // Ẩn quán ngay, không chờ listener báo về.
+            reporters.update { all -> all + (place.id to (all[place.id].orEmpty() + me).distinct()) }
+        }
     }.recoverCatching { e ->
         Log.w(TAG, "Báo quán ${place.id} đã đóng cửa thất bại", e)
         throw when ((e as? FirebaseFirestoreException)?.code) {
@@ -117,6 +128,7 @@ class FirestoreClosedReports(
         const val COLLECTION = "closed_reports"
         const val REPORTERS = "reporters"
         const val UPDATED_AT = "updatedAt"
+        const val RETRY_MS = 15_000L
     }
 }
 
