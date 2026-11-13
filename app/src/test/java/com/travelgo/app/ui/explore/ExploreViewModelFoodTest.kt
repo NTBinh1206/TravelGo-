@@ -5,7 +5,9 @@ import com.travelgo.app.data.model.GeoPoint
 import com.travelgo.app.data.place.FakePlaceRepository
 import com.travelgo.app.data.place.FoodPlaces
 import com.travelgo.app.ui.common.dataOrNull
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -27,12 +29,19 @@ class ExploreViewModelFoodTest {
 
     @Before fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
 
-    @After fun tearDown() = Dispatchers.resetMain()
+    /** ViewModel của test trước vẫn đang nghe ExploreRequest nên phải huỷ, nếu không nó "giành" yêu cầu của test sau. */
+    private val created = mutableListOf<ExploreViewModel>()
+
+    @After fun tearDown() {
+        created.forEach { it.viewModelScope.cancel() }
+        ExploreRequest.category.value = null
+        Dispatchers.resetMain()
+    }
 
     private fun newViewModel() = ExploreViewModel(
         placeRepository = FakePlaceRepository(),
         location = InMemoryLocationProvider().apply { updateLocation(me, "Đà Nẵng") },
-    )
+    ).also { created += it }
 
     @Test fun foodChip_showsOnlyFoodPlaces_nearestFirst() = runTest {
         val vm = newViewModel()
