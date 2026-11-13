@@ -7,6 +7,8 @@ import com.travelgo.app.data.model.GeoPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
@@ -39,8 +41,11 @@ class OsmPlaceRepository(
     private val foodCache = ConcurrentHashMap<String, Pair<Long, List<Place>>>()
 
     private val nominatimLock = Mutex()
-    /** Trang chủ và Khám phá cùng hỏi quán một lúc: người sau chờ người trước rồi dùng lại kết quả, không gửi 2 lần. */
-    private val foodLock = Mutex()
+    /**
+     * Trang chủ và Khám phá cùng hỏi quán ở cùng một chỗ: dùng chung một yêu cầu, không gửi 2 lần.
+     * Chỗ khác nhau (vd. GPS cũ và tỉnh vừa chọn) thì chạy riêng, không phải chờ nhau.
+     */
+    private val foodInFlight = ConcurrentHashMap<String, Deferred<List<Place>>>()
     private var lastNominatimCall = 0L
 
     // Tải ảnh Wikipedia chạy nền: màn hình không phải chờ, ảnh về thì lưu lại cho lần sau.
@@ -144,11 +149,22 @@ class OsmPlaceRepository(
 
     // ---------------- Ăn uống ----------------
 
-    override suspend fun getFoodPlaces(center: GeoPoint): List<Place> = foodLock.withLock {
+    override suspend fun getFoodPlaces(center: GeoPoint): List<Place> {
         // Làm tròn khoảng 1 km: xê dịch ít thì dùng lại kết quả cũ, không hỏi lại máy chủ.
         val key = String.format(Locale.US, "%.2f,%.2f", center.lat, center.lng)
-        foodCache[key]?.let { (time, list) -> if (now() - time < CACHE_TTL_MS) return@withLock list }
+        foodCache[key]?.let { (time, list) -> if (now() - time < CACHE_TTL_MS) return list }
 
+        val request = foodInFlight.computeIfAbsent(key) {
+            scope.async(start = CoroutineStart.LAZY) { fetchFood(center, key) }
+        }
+        try {
+            return request.await()
+        } finally {
+            foodInFlight.remove(key, request) // xong hoặc lỗi thì lần sau hỏi lại từ đầu
+        }
+    }
+
+    private suspend fun fetchFood(center: GeoPoint, key: String): List<Place> {
         val json = postOverpass(FoodPlaces.overpassQuery(center.lat, center.lng))
         val places = withContext(Dispatchers.Default) {
             parseOverpass(json)
@@ -160,7 +176,7 @@ class OsmPlaceRepository(
         places.forEach { byId[it.id] = it }
         foodCache[key] = now() to places
         Log.d(TAG, "Ăn uống: ${places.size} quán quanh $center")
-        places
+        return places
     }
 
     /** null nếu không phải quán ăn uống. */
