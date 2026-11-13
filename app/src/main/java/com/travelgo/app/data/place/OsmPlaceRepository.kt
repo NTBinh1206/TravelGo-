@@ -26,7 +26,8 @@ import java.util.concurrent.ConcurrentHashMap
  *   chạy ngay, không cần mạng.
  * - Tìm kiếm: tìm ngay trong bộ dữ liệu (không dấu). Ít kết quả quá thì hỏi thêm Nominatim (OSM, cần mạng).
  * - Ảnh: điểm có bài Wikipedia / mã Wikidata thì hỏi Wikipedia (cần mạng; mạng chậm thì hiện thẻ trước, ảnh có ở lần sau).
- * - Quán ăn, quán nước: hỏi Overpass quanh vị trí (cần mạng), giữ kết quả 30 phút. Xem [FoodPlaces].
+ * - Quán ăn, quán nước: bộ dữ liệu làm sẵn (FoodDataset, assets/food_vn.tsv); vùng nào không có thì hỏi
+ *   Overpass quanh vị trí (cần mạng). Giữ kết quả 30 phút. Xem [FoodPlaces].
  * - Lưu tạm mọi điểm đã trả về theo id, để màn Lộ trình (08) gọi getPlacesByIds() lấy lại được.
  */
 class OsmPlaceRepository(
@@ -35,6 +36,7 @@ class OsmPlaceRepository(
 ) : PlaceRepository {
 
     private val dataset = PlaceDataset(context.applicationContext)
+    private val foodDataset = FoodDataset(context.applicationContext)
     private val byId = ConcurrentHashMap<String, Place>()
     private val wikiCache = ConcurrentHashMap<String, WikiInfo>()
     private val nominatimCache = ConcurrentHashMap<String, CacheEntry>()
@@ -131,6 +133,9 @@ class OsmPlaceRepository(
         if (missing.isNotEmpty()) {
             val fromDataset = missing.mapNotNull { dataset.byId(it)?.toRaw() }
             if (fromDataset.isNotEmpty()) buildPlaces(fromDataset)
+            missing.filter { !byId.containsKey(it) }
+                .mapNotNull { foodDataset.byId(it)?.toFoodPlace() }
+                .forEach { byId[it.id] = it }
             val stillMissing = missing.filter { id ->
                 !byId.containsKey(id) && id.length > 1 && id[0] in "nwr" && id.drop(1).all(Char::isDigit)
             }
@@ -154,6 +159,18 @@ class OsmPlaceRepository(
         val key = String.format(Locale.US, "%.2f,%.2f", center.lat, center.lng)
         foodCache[key]?.let { (time, list) -> if (now() - time < CACHE_TTL_MS) return list }
 
+        // Có sẵn trong app (assets/food_vn.tsv) thì dùng luôn, không cần mạng.
+        val bundled = foodDataset.near(center, FoodPlaces.RADIUS_M / 1000.0)
+        if (bundled.isNotEmpty()) {
+            val places = bundled.mapNotNull { it.toFoodPlace() }
+                .sortedBy { center.distanceKmTo(it.location) }
+                .take(FoodPlaces.MAX_RESULTS)
+            places.forEach { byId[it.id] = it }
+            foodCache[key] = now() to places
+            return places
+        }
+
+        // Không có (chưa tạo file, hoặc vùng file chưa phủ): hỏi Overpass.
         val request = foodInFlight.computeIfAbsent(key) {
             scope.async(start = CoroutineStart.LAZY) { fetchFood(center, key) }
         }
@@ -177,6 +194,22 @@ class OsmPlaceRepository(
         foodCache[key] = now() to places
         Log.d(TAG, "Ăn uống: ${places.size} quán quanh $center")
         return places
+    }
+
+    private fun FoodDataset.Entry.toFoodPlace(): Place? {
+        val category = FoodPlaces.categoryOf(tags) ?: return null
+        return Place(
+            id = id,
+            name = name,
+            category = category,
+            address = address.ifBlank { location.placeName.value.orEmpty() },
+            lat = lat,
+            lng = lng,
+            score = 0.0,
+            stayMinutes = FoodPlaces.stayMinutes(category),
+            imageUrl = "",
+            tagline = FoodPlaces.tagline(tags),
+        )
     }
 
     /** null nếu không phải quán ăn uống. */
