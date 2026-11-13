@@ -83,7 +83,7 @@ fun TravelGoApp() {
             composable(Routes.LOCATION_PERMISSION) {
                 LocationPermissionScreen(
                     onLocated = { navController.navigateHomeFrom(Routes.LOCATION_PERMISSION) },
-                    onChooseManually = { navController.navigate(Routes.LOCATION_PICKER) },
+                    onChooseManually = { navController.navigate(Routes.LOCATION_PICKER) { launchSingleTop = true } },
                 )
             }
             composable(Routes.LOCATION_PICKER) {
@@ -101,16 +101,16 @@ fun TravelGoApp() {
             }
             composable(Routes.HOME) {
                 HomeScreen(
-                    onOpenSearch = { navController.navigate(Routes.SEARCH) },
+                    onOpenSearch = { navController.navigate(Routes.SEARCH) { launchSingleTop = true } },
                     onOpenExplore = { navController.navigateToTab(Routes.EXPLORE) },
-                    onOpenNearby = { navController.navigate(Routes.NEARBY) },
-                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) },
+                    onOpenNearby = { navController.navigate(Routes.NEARBY) { launchSingleTop = true } },
+                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) { launchSingleTop = true } },
                 )
             }
             composable(Routes.EXPLORE) {
                 ExploreScreen(
-                    onOpenSearch = { navController.navigate(Routes.SEARCH) },
-                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) },
+                    onOpenSearch = { navController.navigate(Routes.SEARCH) { launchSingleTop = true } },
+                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) { launchSingleTop = true } },
                 )
             }
             composable(Routes.PROFILE) {
@@ -129,7 +129,7 @@ fun TravelGoApp() {
                 NearbyScreen(
                     onBack = { navController.popBackStack() },
                     onSmartRoute = { ids -> navController.navigate(Routes.smartRoute(ids)) },
-                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) },
+                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) { launchSingleTop = true } },
                 )
             }
             composable(
