@@ -87,14 +87,15 @@ fun TravelGoApp() {
                 )
             }
             composable(Routes.LOCATION_PICKER) {
+                // Chỉ đóng đúng màn chọn vị trí: bấm nhanh hai lần không làm mất luôn Trang chủ (màn trắng).
                 LocationPickerScreen(
-                    onBack = { navController.popBackStack() },
+                    onBack = { navController.popBackStack(Routes.LOCATION_PICKER, inclusive = true) },
                     onPicked = {
                         // Mở từ màn 02 (lúc mới đăng nhập) thì vào Trang chủ; mở từ màn khác thì quay lại màn đó.
                         val fromPermission =
                             navController.previousBackStackEntry?.destination?.route == Routes.LOCATION_PERMISSION
                         if (fromPermission) navController.navigateHomeFrom(Routes.LOCATION_PERMISSION)
-                        else navController.popBackStack()
+                        else navController.popBackStack(Routes.LOCATION_PICKER, inclusive = true)
                     },
                 )
             }
