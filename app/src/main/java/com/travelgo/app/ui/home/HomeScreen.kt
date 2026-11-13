@@ -30,7 +30,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,7 +50,8 @@ import com.travelgo.app.ui.common.EmptyActionButton
 import com.travelgo.app.ui.common.LoadStatus
 import com.travelgo.app.ui.common.NO_NEARBY_TEXT
 import com.travelgo.app.ui.common.dataOrNull
-import com.travelgo.app.ui.common.openPlaceInGoogleMaps
+import com.travelgo.app.data.place.Place
+import com.travelgo.app.ui.food.FoodPlaceSheet
 import com.travelgo.app.ui.explore.ExploreRequest
 import com.travelgo.app.ui.explore.FOOD_GROUP
 import com.travelgo.app.components.PlaceTileCard
@@ -76,7 +79,7 @@ fun HomeScreen(
     val featured = state.featured
     val nearby = state.nearby.dataOrNull.orEmpty()
     val food = state.food.dataOrNull.orEmpty()
-    val context = LocalContext.current
+    var selectedFood by remember { mutableStateOf<Place?>(null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
@@ -180,12 +183,18 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 items(food, key = { it.id }) { place ->
-                    // Chạm vào quán: mở Google Maps để xem ảnh, điểm sao và bình luận.
-                    PlaceTileCard(place = place, subtitle = place.tagline, onClick = { openPlaceInGoogleMaps(context, place) })
+                    // Chạm vào quán: hiện tấm thông tin (mở Google Maps, báo quán đã đóng cửa).
+                    PlaceTileCard(place = place, subtitle = place.tagline, onClick = { selectedFood = place })
                 }
             }
         }
     }
+
+    FoodPlaceSheet(
+        place = selectedFood,
+        distanceKm = selectedFood?.let { p -> state.me?.distanceKmTo(p.location) },
+        onDismiss = { selectedFood = null },
+    )
 }
 
 @Composable

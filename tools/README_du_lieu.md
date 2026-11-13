@@ -48,3 +48,14 @@ python tools/build_food_vn.py
 
 Máy chủ lỗi hay mạng rớt giữa chừng thì chạy lại lệnh trên: vùng nào đã tải xong (lưu trong `tools/food_raw_parts/`) được bỏ qua.
 Muốn tải lại từ đầu thì xoá thư mục `tools/food_raw_parts/`.
+
+## Báo quán đã đóng cửa (Cloud Firestore)
+
+Dữ liệu OpenStreetMap có thể chưa cập nhật quán đã đóng. Trong app, chạm vào một quán → **Báo quán đã đóng cửa**.
+Quán ẩn ngay với người báo, và ẩn với mọi người khi có 2 người báo (`ClosedReportRepository.HIDE_FOR_EVERYONE`).
+
+- Dữ liệu nằm ở bộ sưu tập `closed_reports` trên Firestore (gói Spark miễn phí), mỗi quán một tài liệu,
+  tên tài liệu là id quán (`n123`, `w456`…), có trường `reporters` là danh sách uid người đã báo.
+- Luật bảo vệ: file `firestore.rules` ở thư mục gốc. Dán nội dung file vào Firebase Console → Firestore Database → Rules → Publish.
+  Luật chỉ cho người đã đăng nhập đọc, mỗi người chỉ thêm được chính mình vào danh sách một lần, không ai xoá được từ app.
+- Quán mở lại: xoá tài liệu của quán đó trên Firebase Console.

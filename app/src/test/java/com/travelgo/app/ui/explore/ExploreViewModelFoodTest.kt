@@ -4,6 +4,7 @@ import com.travelgo.app.data.location.InMemoryLocationProvider
 import com.travelgo.app.data.model.GeoPoint
 import com.travelgo.app.data.place.FakePlaceRepository
 import com.travelgo.app.data.place.FoodPlaces
+import com.travelgo.app.data.place.InMemoryClosedReports
 import com.travelgo.app.ui.common.dataOrNull
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -38,9 +39,12 @@ class ExploreViewModelFoodTest {
         Dispatchers.resetMain()
     }
 
+    private val reports = InMemoryClosedReports(myUid = "me")
+
     private fun newViewModel() = ExploreViewModel(
         placeRepository = FakePlaceRepository(),
         location = InMemoryLocationProvider().apply { updateLocation(me, "Đà Nẵng") },
+        closedReports = reports,
     ).also { created += it }
 
     @Test fun foodChip_showsOnlyFoodPlaces_nearestFirst() = runTest {
@@ -67,6 +71,19 @@ class ExploreViewModelFoodTest {
 
         val places = vm.uiState.value.places.dataOrNull!!
         assertEquals(listOf("f2"), places.map { it.id })
+    }
+
+    @Test fun reportedClosed_isHidden_rightAway() = runTest {
+        val vm = newViewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+        vm.selectCategory(FOOD_GROUP)
+        advanceUntilIdle()
+        val f1 = vm.uiState.value.places.dataOrNull!!.first { it.id == "f1" }
+
+        reports.reportClosed(f1)
+        advanceUntilIdle()
+
+        assertEquals(listOf("f2", "f3"), vm.uiState.value.places.dataOrNull!!.map { it.id }.sorted())
     }
 
     @Test fun requestFromHome_opensFoodChip() = runTest {

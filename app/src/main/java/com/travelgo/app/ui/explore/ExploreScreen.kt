@@ -30,7 +30,9 @@ import androidx.compose.material.icons.outlined.Waves
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,7 +49,8 @@ import com.travelgo.app.ui.common.EmptyActionButton
 import com.travelgo.app.ui.common.LoadStatus
 import com.travelgo.app.ui.common.NO_NEARBY_TEXT
 import com.travelgo.app.ui.common.dataOrNull
-import com.travelgo.app.ui.common.openPlaceInGoogleMaps
+import com.travelgo.app.data.place.Place
+import com.travelgo.app.ui.food.FoodPlaceSheet
 import com.travelgo.app.components.PillChip
 import com.travelgo.app.components.PlaceRowCard
 import com.travelgo.app.components.SearchBarButton
@@ -82,7 +85,7 @@ fun ExploreScreen(
     val category = state.category
     val sort = state.sort
     val shown = state.places.dataOrNull.orEmpty()
-    val context = LocalContext.current
+    var selectedFood by remember { mutableStateOf<Place?>(null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
@@ -136,7 +139,7 @@ fun ExploreScreen(
             item {
                 // OSM không có điểm đánh giá: nói rõ để người dùng không hiểu nhầm là quán được xếp hạng.
                 Text(
-                    "Chạm vào quán để xem ảnh và đánh giá trên Google Maps. Dữ liệu quán từ OpenStreetMap.",
+                    "Chạm vào quán để xem ảnh, đánh giá trên Google Maps hoặc báo quán đã đóng cửa. Dữ liệu quán từ OpenStreetMap.",
                     color = Muted, fontSize = 13.sp,
                 )
             }
@@ -159,11 +162,17 @@ fun ExploreScreen(
                 place = place,
                 subtitle = if (isFoodPlace) place.tagline else place.address,
                 distanceKm = me.distanceKmTo(place.location),
-                onClick = { if (isFoodPlace) openPlaceInGoogleMaps(context, place) /* TODO(Người 2): chi tiết điểm du lịch */ },
+                onClick = { if (isFoodPlace) selectedFood = place /* TODO(Người 2): chi tiết điểm du lịch */ },
                 trailing = { FavoriteButton() },
             )
         }
     }
+
+    FoodPlaceSheet(
+        place = selectedFood,
+        distanceKm = selectedFood?.let { me.distanceKmTo(it.location) },
+        onDismiss = { selectedFood = null },
+    )
 }
 
 @Composable

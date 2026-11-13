@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelgo.app.data.location.LocationProvider
 import com.travelgo.app.data.model.GeoPoint
+import com.travelgo.app.data.place.ClosedReportRepository
 import com.travelgo.app.data.place.FoodPlaces
 import com.travelgo.app.data.place.Place
 import com.travelgo.app.data.place.PlaceRepository
@@ -64,6 +65,7 @@ data class ExploreUiState(
 class ExploreViewModel(
     private val placeRepository: PlaceRepository = AppContainer.placeRepository,
     private val location: LocationProvider = AppContainer.locationProvider,
+    private val closedReports: ClosedReportRepository = AppContainer.closedReports,
 ) : ViewModel() {
 
     private val category = MutableStateFlow<String?>(null)
@@ -86,7 +88,7 @@ class ExploreViewModel(
         .stateIn(viewModelScope, SharingStarted.Lazily, LoadState.Loading)
 
     // Quán ăn uống cần mạng nên chỉ tải khi người dùng chọn chip "Ăn uống".
-    private val food = combine(
+    private val allFood = combine(
         location.currentLocation.anchored(),
         retry,
         category.map { it == FOOD_GROUP }.distinctUntilChanged(),
@@ -95,6 +97,11 @@ class ExploreViewModel(
             if (wanted) loadFlow { placeRepository.getFoodPlaces(center) } else flowOf(LoadState.Loading)
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, LoadState.Loading)
+
+    // Bỏ quán người dùng báo đã đóng cửa; có người báo mới thì danh sách tự cập nhật.
+    private val food = combine(allFood, closedReports.hiddenIds) { state, hidden ->
+        state.map { list -> list.filterNot { it.id in hidden } }
+    }
 
     private val source = combine(category, nearby, food) { cat, nearbyState, foodState ->
         if (cat == FOOD_GROUP) foodState else nearbyState
