@@ -18,6 +18,12 @@ interface PlaceRepository {
 
     /** Thành phố, điểm đến nổi bật cho Trang chủ. */
     suspend fun getFeaturedDestinations(): List<Place>
+
+    /**
+     * Quán ăn, quán nước quanh [center], gần nhất trước (category = quan_an / quan_nuoc, xem [FoodPlaces]).
+     * Không có điểm đánh giá: dữ liệu OpenStreetMap không cho biết quán nào ngon.
+     */
+    suspend fun getFoodPlaces(center: GeoPoint): List<Place> = emptyList()
 }
 
 private fun res(name: String) = "android.resource://com.travelgo.app/drawable/$name"
@@ -56,7 +62,17 @@ class FakePlaceRepository : PlaceRepository {
         }
     }
     override suspend fun getPlacesByIds(ids: List<String>): List<Place> =
-        ids.mapNotNull { id -> samples.firstOrNull { it.id == id } }
+        ids.mapNotNull { id -> (samples + foodSamples).firstOrNull { it.id == id } }
 
     override suspend fun getFeaturedDestinations(): List<Place> = featured
+
+    /** Quán mẫu (tên giả) để dựng giao diện và kiểm thử, không phải quán thật. */
+    private val foodSamples = listOf(
+        Place("f1", "Quán phở mẫu", FoodPlaces.QUAN_AN, "Hải Châu, Đà Nẵng", 16.0610, 108.2200, 0.0, 45, tagline = "Quán ăn · Phở"),
+        Place("f2", "Quán cà phê mẫu", FoodPlaces.QUAN_NUOC, "Hải Châu, Đà Nẵng", 16.0560, 108.2050, 0.0, 30, tagline = "Quán cà phê"),
+        Place("f3", "Quán hải sản mẫu", FoodPlaces.QUAN_AN, "Sơn Trà, Đà Nẵng", 16.0700, 108.2450, 0.0, 45, tagline = "Quán ăn · Hải sản"),
+    )
+
+    override suspend fun getFoodPlaces(center: GeoPoint): List<Place> =
+        foodSamples.sortedBy { center.distanceKmTo(it.location) }
 }

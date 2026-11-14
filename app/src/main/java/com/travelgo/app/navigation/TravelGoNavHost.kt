@@ -83,33 +83,34 @@ fun TravelGoApp() {
             composable(Routes.LOCATION_PERMISSION) {
                 LocationPermissionScreen(
                     onLocated = { navController.navigateHomeFrom(Routes.LOCATION_PERMISSION) },
-                    onChooseManually = { navController.navigate(Routes.LOCATION_PICKER) },
+                    onChooseManually = { navController.navigate(Routes.LOCATION_PICKER) { launchSingleTop = true } },
                 )
             }
             composable(Routes.LOCATION_PICKER) {
+                // Chỉ đóng đúng màn chọn vị trí: bấm nhanh hai lần không làm mất luôn Trang chủ (màn trắng).
                 LocationPickerScreen(
-                    onBack = { navController.popBackStack() },
+                    onBack = { navController.popBackStack(Routes.LOCATION_PICKER, inclusive = true) },
                     onPicked = {
                         // Mở từ màn 02 (lúc mới đăng nhập) thì vào Trang chủ; mở từ màn khác thì quay lại màn đó.
                         val fromPermission =
                             navController.previousBackStackEntry?.destination?.route == Routes.LOCATION_PERMISSION
                         if (fromPermission) navController.navigateHomeFrom(Routes.LOCATION_PERMISSION)
-                        else navController.popBackStack()
+                        else navController.popBackStack(Routes.LOCATION_PICKER, inclusive = true)
                     },
                 )
             }
             composable(Routes.HOME) {
                 HomeScreen(
-                    onOpenSearch = { navController.navigate(Routes.SEARCH) },
+                    onOpenSearch = { navController.navigate(Routes.SEARCH) { launchSingleTop = true } },
                     onOpenExplore = { navController.navigateToTab(Routes.EXPLORE) },
-                    onOpenNearby = { navController.navigate(Routes.NEARBY) },
-                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) },
+                    onOpenNearby = { navController.navigate(Routes.NEARBY) { launchSingleTop = true } },
+                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) { launchSingleTop = true } },
                 )
             }
             composable(Routes.EXPLORE) {
                 ExploreScreen(
-                    onOpenSearch = { navController.navigate(Routes.SEARCH) },
-                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) },
+                    onOpenSearch = { navController.navigate(Routes.SEARCH) { launchSingleTop = true } },
+                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) { launchSingleTop = true } },
                 )
             }
             composable(Routes.PROFILE) {
@@ -128,7 +129,7 @@ fun TravelGoApp() {
                 NearbyScreen(
                     onBack = { navController.popBackStack() },
                     onSmartRoute = { ids -> navController.navigate(Routes.smartRoute(ids)) },
-                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) },
+                    onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) { launchSingleTop = true } },
                 )
             }
             composable(

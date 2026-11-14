@@ -5,6 +5,8 @@ import coil.Coil
 import coil.ImageLoader
 import com.travelgo.app.data.auth.AuthRepository
 import com.travelgo.app.data.location.FusedLocationProvider
+import com.travelgo.app.data.place.ClosedReportRepository
+import com.travelgo.app.data.place.FirestoreClosedReports
 import com.travelgo.app.data.location.LocationProvider
 import com.travelgo.app.data.place.OsmPlaceRepository
 import com.travelgo.app.data.place.PlaceRepository
@@ -55,4 +57,6 @@ object AppContainer {
     // Muốn quay lại dữ liệu mẫu: FakePlaceRepository().
     val placeRepository: PlaceRepository by lazy { OsmPlaceRepository(appContext, locationProvider) }
     val authRepository: AuthRepository by lazy { AuthRepository() }
+    // Người dùng báo quán đã đóng cửa (Cloud Firestore). Muốn chạy không cần Firebase: InMemoryClosedReports().
+    val closedReports: ClosedReportRepository by lazy { FirestoreClosedReports() }
 }

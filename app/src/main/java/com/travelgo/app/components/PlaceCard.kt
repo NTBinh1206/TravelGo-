@@ -3,6 +3,7 @@ package com.travelgo.app.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,8 +19,23 @@ import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.BakeryDining
+import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.Eco
+import androidx.compose.material.icons.outlined.EmojiFoodBeverage
+import androidx.compose.material.icons.outlined.Fastfood
+import androidx.compose.material.icons.outlined.Icecream
+import androidx.compose.material.icons.outlined.LocalDrink
+import androidx.compose.material.icons.outlined.LocalPizza
+import androidx.compose.material.icons.outlined.LunchDining
+import androidx.compose.material.icons.outlined.OutdoorGrill
+import androidx.compose.material.icons.outlined.RamenDining
+import androidx.compose.material.icons.outlined.RiceBowl
+import androidx.compose.material.icons.outlined.SetMeal
+import androidx.compose.material.icons.outlined.LocalCafe
 import androidx.compose.material.icons.outlined.Park
 import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.Terrain
 import androidx.compose.material.icons.outlined.Waves
 import androidx.compose.material3.Icon
@@ -28,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -37,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.travelgo.app.data.model.formatKm
+import com.travelgo.app.data.place.FoodPlaces
 import com.travelgo.app.data.place.Place
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.BlueLight
@@ -53,6 +71,8 @@ fun categoryIcon(category: String): ImageVector = when (category) {
     "van_hoa" -> Icons.Outlined.AccountBalance
     "thanh_pho" -> Icons.Outlined.Apartment
     "thien_nhien" -> Icons.Outlined.Park
+    FoodPlaces.QUAN_AN -> Icons.Outlined.Restaurant
+    FoodPlaces.QUAN_NUOC -> Icons.Outlined.LocalCafe
     else -> Icons.Outlined.Place
 }
 
@@ -62,6 +82,10 @@ fun categoryIcon(category: String): ImageVector = when (category) {
  */
 @Composable
 fun PlaceImage(place: Place, modifier: Modifier = Modifier) {
+    if (FoodPlaces.isFood(place.category) && place.imageUrl.isBlank()) {
+        DishArt(place, modifier)
+        return
+    }
     Box(modifier.background(BlueLight), contentAlignment = Alignment.Center) {
         Icon(
             categoryIcon(place.category),
@@ -78,6 +102,41 @@ fun PlaceImage(place: Place, modifier: Modifier = Modifier) {
             )
         }
     }
+}
+
+/**
+ * Hình minh hoạ cho quán ăn uống: OpenStreetMap không có ảnh quán, nên vẽ biểu tượng món đoán từ tên quán
+ * (trà sữa, phở, lẩu nướng…) trên nền màu riêng của món. Không lấy ảnh từ Google vì điều khoản không cho phép.
+ */
+@Composable
+private fun DishArt(place: Place, modifier: Modifier) {
+    val dish = FoodPlaces.dishOf(place.name, place.tagline, place.category)
+    val (icon, color) = dishStyle(dish)
+    BoxWithConstraints(
+        modifier.background(Brush.linearGradient(listOf(color.copy(alpha = 0.18f), color.copy(alpha = 0.38f)))),
+        contentAlignment = Alignment.Center,
+    ) {
+        val side = minOf(maxWidth, maxHeight)
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(side * 0.46f))
+    }
+}
+
+private fun dishStyle(dish: FoodPlaces.Dish): Pair<ImageVector, Color> = when (dish) {
+    FoodPlaces.Dish.TRA_SUA -> Icons.Outlined.EmojiFoodBeverage to Color(0xFF8D5A97)
+    FoodPlaces.Dish.CA_PHE -> Icons.Outlined.LocalCafe to Color(0xFF7B5236)
+    FoodPlaces.Dish.BANH_NGOT -> Icons.Outlined.Cake to Color(0xFFC2457A)
+    FoodPlaces.Dish.KEM -> Icons.Outlined.Icecream to Color(0xFFD9667E)
+    FoodPlaces.Dish.PIZZA -> Icons.Outlined.LocalPizza to Color(0xFFD0571F)
+    FoodPlaces.Dish.BURGER -> Icons.Outlined.LunchDining to Color(0xFFB7791F)
+    FoodPlaces.Dish.GA_RAN -> Icons.Outlined.Fastfood to Color(0xFFC0392B)
+    FoodPlaces.Dish.CHAY -> Icons.Outlined.Eco to Color(0xFF2E8B57)
+    FoodPlaces.Dish.LAU_NUONG -> Icons.Outlined.OutdoorGrill to Color(0xFFB4441F)
+    FoodPlaces.Dish.HAI_SAN -> Icons.Outlined.SetMeal to Color(0xFF1E7FA8)
+    FoodPlaces.Dish.BANH_MI -> Icons.Outlined.BakeryDining to Color(0xFFA9711F)
+    FoodPlaces.Dish.PHO_BUN -> Icons.Outlined.RamenDining to Color(0xFFC6612A)
+    FoodPlaces.Dish.COM -> Icons.Outlined.RiceBowl to Color(0xFF7A8B2B)
+    FoodPlaces.Dish.NUOC -> Icons.Outlined.LocalDrink to Color(0xFF2A8C9A)
+    FoodPlaces.Dish.QUAN_AN -> Icons.Outlined.Restaurant to Color(0xFF3F6FB5)
 }
 
 /**

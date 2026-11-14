@@ -30,6 +30,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +50,10 @@ import com.travelgo.app.ui.common.EmptyActionButton
 import com.travelgo.app.ui.common.LoadStatus
 import com.travelgo.app.ui.common.NO_NEARBY_TEXT
 import com.travelgo.app.ui.common.dataOrNull
+import com.travelgo.app.data.place.Place
+import com.travelgo.app.ui.food.FoodPlaceSheet
+import com.travelgo.app.ui.explore.ExploreRequest
+import com.travelgo.app.ui.explore.FOOD_GROUP
 import com.travelgo.app.components.PlaceTileCard
 import com.travelgo.app.components.SearchBarButton
 import com.travelgo.app.components.SectionHeader
@@ -71,6 +78,8 @@ fun HomeScreen(
     val placeName = state.placeName
     val featured = state.featured
     val nearby = state.nearby.dataOrNull.orEmpty()
+    val food = state.food.dataOrNull.orEmpty()
+    var selectedFood by remember { mutableStateOf<Place?>(null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
@@ -151,7 +160,41 @@ fun HomeScreen(
                 }
             }
         }
+        item {
+            SectionHeader(
+                "Ăn uống quanh bạn", "Xem tất cả",
+                {
+                    ExploreRequest.open(FOOD_GROUP) // mở Khám phá ở sẵn chip "Ăn uống"
+                    onOpenExplore()
+                },
+                Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
+            )
+        }
+        item {
+            LoadStatus(
+                state = state.food,
+                onRetry = viewModel::retry,
+                emptyText = "Chưa tìm thấy quán ăn, quán nước nào quanh bạn trên OpenStreetMap.",
+            )
+        }
+        item {
+            LazyRow(
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                items(food, key = { it.id }) { place ->
+                    // Chạm vào quán: hiện tấm thông tin (mở Google Maps, báo quán đã đóng cửa).
+                    PlaceTileCard(place = place, subtitle = place.tagline, onClick = { selectedFood = place })
+                }
+            }
+        }
     }
+
+    FoodPlaceSheet(
+        place = selectedFood,
+        distanceKm = selectedFood?.let { p -> state.me?.distanceKmTo(p.location) },
+        onDismiss = { selectedFood = null },
+    )
 }
 
 @Composable
