@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -27,25 +28,31 @@ import kotlin.coroutines.resumeWithException
  *
  * Mỗi quán bị báo là một tài liệu `closed_reports/{id quán}`:
  *   name, lat, lng      tên và toạ độ quán (để xem lại trên Firebase Console)
- *   reporters           danh sách uid người đã báo, mỗi người chỉ tính một lần
- *   updatedAt           lần báo gần nhất (giờ máy chủ)
- * Luật bảo vệ dữ liệu nằm ở file firestore.rules ở thư mục gốc project.
+ *   reporters           uid TÀI KHOẢN THẬT (Google, Facebook) đã báo đóng cửa
+ *   guests              uid tài khoản Khách (ẩn danh) đã báo; không tính vào ngưỡng gắn nhãn
+ *   openers             uid đã bấm "Quán vẫn mở cửa"
+ *   updatedAt           lần ghi gần nhất (giờ máy chủ)
+ * Mỗi uid chỉ được tính một lần; luật bảo vệ dữ liệu nằm ở file firestore.rules ở thư mục gốc project.
  *
  * App nghe cả bộ sưu tập này (số quán bị báo ít nên rất nhẹ, nằm trong mức miễn phí 50.000 lượt đọc mỗi ngày),
- * có người báo mới thì danh sách quán ẩn tự cập nhật, không phải tải lại màn hình.
+ * có người báo mới thì danh sách quán ẩn / gắn nhãn tự cập nhật, không phải tải lại màn hình.
  */
 class FirestoreClosedReports(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
 ) : ClosedReportRepository {
 
-    private val reporters = MutableStateFlow<Map<String, List<String>>>(emptyMap())
+    private val tallies = MutableStateFlow<Map<String, ReportTally>>(emptyMap())
     private val myUid = MutableStateFlow(auth.currentUser?.uid)
     private var registration: ListenerRegistration? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override val hiddenIds: StateFlow<Set<String>> =
-        combine(reporters, myUid) { all, me -> ClosedReportRepository.hiddenPlaceIds(all, me) }
+        combine(tallies, myUid) { all, me -> ClosedReportRepository.hiddenPlaceIds(all, me) }
+            .stateIn(scope, SharingStarted.Eagerly, emptySet())
+
+    override val flaggedIds: StateFlow<Set<String>> =
+        tallies.map { ClosedReportRepository.flaggedPlaceIds(it) }
             .stateIn(scope, SharingStarted.Eagerly, emptySet())
 
     init {
@@ -62,7 +69,7 @@ class FirestoreClosedReports(
         registration?.remove()
         registration = null
         if (uid == null) {
-            reporters.value = emptyMap()
+            tallies.value = emptyMap()
             return
         }
         registration = db.collection(COLLECTION).addSnapshotListener { snapshot, error ->
@@ -75,24 +82,29 @@ class FirestoreClosedReports(
                 }
                 return@addSnapshotListener
             }
-            reporters.value = snapshot?.documents.orEmpty().associate { doc ->
-                doc.id to (doc.get(REPORTERS) as? List<*>).orEmpty().filterIsInstance<String>()
+            tallies.value = snapshot?.documents.orEmpty().associate { doc ->
+                doc.id to ReportTally(
+                    reporters = doc.uids(REPORTERS),
+                    guests = doc.uids(GUESTS),
+                    openers = doc.uids(OPENERS),
+                )
             }
         }
     }
 
-    override suspend fun reportClosed(place: Place): Result<Int> = runCatching {
-        val me = auth.currentUser?.uid ?: throw ReportClosedException("Bạn cần đăng nhập để báo quán đã đóng cửa.")
+    override suspend fun reportClosed(place: Place): Result<Int> = write(place) { me, anonymous ->
+        val field = if (anonymous) GUESTS else REPORTERS
         val ref = db.collection(COLLECTION).document(place.id)
         // Giao dịch: đọc rồi ghi cùng lúc, hai người báo cùng một quán một lúc vẫn đếm đúng.
         db.runTransaction { tx ->
             val doc = tx.get(ref)
-            val already = (doc.get(REPORTERS) as? List<*>).orEmpty().filterIsInstance<String>()
+            val already = (doc.get(field) as? List<*>).orEmpty().filterIsInstance<String>()
+            val real = (doc.get(REPORTERS) as? List<*>).orEmpty().filterIsInstance<String>().size
             when {
-                me in already -> already.size
+                me in already -> real
                 doc.exists() -> {
-                    tx.update(ref, mapOf(REPORTERS to FieldValue.arrayUnion(me), UPDATED_AT to FieldValue.serverTimestamp()))
-                    already.size + 1
+                    tx.update(ref, mapOf(field to FieldValue.arrayUnion(me), UPDATED_AT to FieldValue.serverTimestamp()))
+                    if (anonymous) real else real + 1
                 }
                 else -> {
                     tx.set(
@@ -101,19 +113,37 @@ class FirestoreClosedReports(
                             "name" to place.name.take(200),
                             "lat" to place.lat,
                             "lng" to place.lng,
-                            REPORTERS to listOf(me),
+                            REPORTERS to if (anonymous) emptyList() else listOf(me),
+                            GUESTS to if (anonymous) listOf(me) else emptyList<String>(),
+                            OPENERS to emptyList<String>(),
                             UPDATED_AT to FieldValue.serverTimestamp(),
                         ),
                     )
-                    1
+                    if (anonymous) 0 else 1
                 }
             }
         }.awaitResult().also {
-            // Ẩn quán ngay, không chờ listener báo về.
-            reporters.update { all -> all + (place.id to (all[place.id].orEmpty() + me).distinct()) }
+            // Ẩn quán ngay với mình, không chờ listener báo về.
+            local(place.id) {
+                if (anonymous) it.copy(guests = (it.guests + me).distinct())
+                else it.copy(reporters = (it.reporters + me).distinct())
+            }
         }
+    }
+
+    override suspend fun confirmOpen(place: Place): Result<Unit> = write(place) { me, _ ->
+        val ref = db.collection(COLLECTION).document(place.id)
+        ref.update(mapOf(OPENERS to FieldValue.arrayUnion(me), UPDATED_AT to FieldValue.serverTimestamp()))
+            .awaitResult()
+        local(place.id) { it.copy(openers = (it.openers + me).distinct()) }
+    }
+
+    /** Khung chung: lấy uid, chạy [block], đổi lỗi Firestore thành câu dễ hiểu. */
+    private suspend fun <T> write(place: Place, block: suspend (String, Boolean) -> T): Result<T> = runCatching {
+        val user = auth.currentUser ?: throw ReportClosedException("Bạn cần đăng nhập để báo quán đã đóng cửa.")
+        block(user.uid, user.isAnonymous)
     }.recoverCatching { e ->
-        Log.w(TAG, "Báo quán ${place.id} đã đóng cửa thất bại", e)
+        Log.w(TAG, "Ghi báo cáo cho quán ${place.id} thất bại", e)
         throw when ((e as? FirebaseFirestoreException)?.code) {
             FirebaseFirestoreException.Code.PERMISSION_DENIED ->
                 ReportClosedException("Máy chủ chưa cho phép báo quán (kiểm tra luật Firestore).", e)
@@ -123,10 +153,19 @@ class FirestoreClosedReports(
         }
     }
 
+    private fun local(placeId: String, edit: (ReportTally) -> ReportTally) {
+        tallies.update { all -> all + (placeId to edit(all[placeId] ?: ReportTally())) }
+    }
+
+    private fun com.google.firebase.firestore.DocumentSnapshot.uids(field: String): List<String> =
+        (get(field) as? List<*>).orEmpty().filterIsInstance<String>()
+
     private companion object {
         const val TAG = "ClosedReports"
         const val COLLECTION = "closed_reports"
         const val REPORTERS = "reporters"
+        const val GUESTS = "guests"
+        const val OPENERS = "openers"
         const val UPDATED_AT = "updatedAt"
         const val RETRY_MS = 15_000L
     }

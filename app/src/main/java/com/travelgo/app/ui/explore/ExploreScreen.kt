@@ -162,6 +162,7 @@ fun ExploreScreen(
                 place = place,
                 subtitle = if (isFoodPlace) place.tagline else place.address,
                 distanceKm = me.distanceKmTo(place.location),
+                flagged = isFoodPlace && place.id in state.flaggedFood,
                 onClick = { if (isFoodPlace) selectedFood = place /* TODO(Người 2): chi tiết điểm du lịch */ },
                 trailing = { FavoriteButton() },
             )
