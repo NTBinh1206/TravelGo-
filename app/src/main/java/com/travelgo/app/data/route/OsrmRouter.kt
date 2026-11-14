@@ -7,9 +7,10 @@ import com.travelgo.app.domain.route.TravelTable
 import com.travelgo.app.domain.route.estimateTable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.net.HttpURLConnection
-import java.net.URL
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 /**
  * Quãng đường, thời gian theo đường bộ từ máy chủ OSRM công cộng (miễn phí, không cần khoá API).
@@ -20,6 +21,8 @@ import java.util.concurrent.ConcurrentHashMap
  * - Máy chủ công cộng chỉ dành cho thử nghiệm, nhiều nhất khoảng 1 yêu cầu mỗi giây: hợp với đồ án,
  *   khi phát hành thật cần tự dựng máy chủ OSRM hoặc dùng dịch vụ trả phí.
  * - Thời gian OSRM tính theo đường thông thoáng cho ô tô, chưa tính kẹt xe.
+ * - Dùng OkHttp thay cho HttpURLConnection: trên máy thử, HttpURLConnection bị máy chủ OSRM từ chối
+ *   ở bước bắt tay TLS (SSLV3_ALERT_HANDSHAKE_FAILURE), còn Chrome trên cùng máy kết nối bình thường.
  */
 class OsrmRouter(
     private val servers: List<String> = listOf(
@@ -27,6 +30,11 @@ class OsrmRouter(
         "https://routing.openstreetmap.de/routed-car",
     ),
 ) : RoadRouter {
+
+    private val http = OkHttpClient.Builder()
+        .connectTimeout(TIMEOUT_S, TimeUnit.SECONDS)
+        .readTimeout(TIMEOUT_S, TimeUnit.SECONDS)
+        .build()
 
     private val tables = ConcurrentHashMap<String, TravelTable>()
     private val paths = ConcurrentHashMap<String, List<GeoPoint>>()
@@ -52,7 +60,7 @@ class OsrmRouter(
     private suspend fun <T> firstAnswer(ask: (String) -> T?): T? = withContext(Dispatchers.IO) {
         for (base in servers) {
             val result = runCatching { ask(base) }
-                .onFailure { Log.w(TAG, "OSRM $base lỗi: ${it.message}") }
+                .onFailure { Log.w(TAG, "OSRM $base lỗi: ${it.javaClass.simpleName}: ${it.message}") }
                 .getOrNull()
             if (result != null) return@withContext result
         }
@@ -60,22 +68,16 @@ class OsrmRouter(
     }
 
     private fun get(url: String): String {
-        val conn = URL(url).openConnection() as HttpURLConnection
-        try {
-            conn.connectTimeout = TIMEOUT_MS
-            conn.readTimeout = TIMEOUT_MS
-            conn.setRequestProperty("User-Agent", USER_AGENT)
-            val code = conn.responseCode
-            if (code != 200) error("HTTP $code")
-            return conn.inputStream.bufferedReader().use { it.readText() }
-        } finally {
-            conn.disconnect()
+        val request = Request.Builder().url(url).header("User-Agent", AGENT).build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) error("HTTP ${response.code}")
+            return response.body?.string() ?: error("Không có nội dung")
         }
     }
 
     private companion object {
         const val TAG = "OsrmRouter"
-        const val USER_AGENT = "TravelGo/1.0 (Android student project)"
-        const val TIMEOUT_MS = 8_000
+        const val AGENT = "TravelGo/1.0 (Android student project)"
+        const val TIMEOUT_S = 8L
     }
 }
