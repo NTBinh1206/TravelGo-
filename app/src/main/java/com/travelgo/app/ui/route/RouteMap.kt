@@ -67,6 +67,7 @@ fun RouteMap(
     roundTrip: Boolean,
     durationText: String,
     modifier: Modifier = Modifier,
+    roadPath: List<GeoPoint>? = null, // đường đi theo đường bộ (OSRM); null thì nối thẳng các điểm
 ) {
     val context = LocalContext.current
     val mapView = remember {
@@ -107,7 +108,7 @@ fun RouteMap(
             factory = { mapView },
             update = { map ->
                 server?.let { if (map.tileProvider.tileSource != it.source) map.setTileSource(it.source) }
-                map.showRoute(context, start, stops, roundTrip)
+                map.showRoute(context, start, stops, roundTrip, roadPath)
             },
             modifier = Modifier.matchParentSize(),
         )
@@ -207,11 +208,18 @@ private suspend fun pickTileServer(): TileServer = chosenServer ?: withContext(D
 }
 
 /** Vẽ lại đường đi + các điểm, rồi thu phóng cho vừa khung. */
-private fun MapView.showRoute(context: Context, start: GeoPoint, stops: List<GeoPoint>, roundTrip: Boolean) {
+private fun MapView.showRoute(
+    context: Context,
+    start: GeoPoint,
+    stops: List<GeoPoint>,
+    roundTrip: Boolean,
+    roadPath: List<GeoPoint>?,
+) {
     overlays.clear()
     val startPoint = OsmPoint(start.lat, start.lng)
     val stopPoints = stops.map { OsmPoint(it.lat, it.lng) }
-    val path = listOf(startPoint) + stopPoints + if (roundTrip && stopPoints.isNotEmpty()) listOf(startPoint) else emptyList()
+    val straight = listOf(startPoint) + stopPoints + if (roundTrip && stopPoints.isNotEmpty()) listOf(startPoint) else emptyList()
+    val path = roadPath?.takeIf { it.size >= 2 }?.map { OsmPoint(it.lat, it.lng) } ?: straight
 
     if (path.size > 1) {
         overlays += Polyline(this).apply {
@@ -226,7 +234,7 @@ private fun MapView.showRoute(context: Context, start: GeoPoint, stops: List<Geo
     stopPoints.forEachIndexed { i, p -> overlays += pointMarker(context, p, "${i + 1}", Blue, 30) }
     overlays += pointMarker(context, startPoint, "Bạn", Green, 38)
 
-    val all = listOf(startPoint) + stopPoints
+    val all = listOf(startPoint) + stopPoints + path
     val fit = {
         val box = BoundingBox.fromGeoPointsSafe(all)
         if (box.latitudeSpan < 0.002 && box.longitudeSpanWithDateLine < 0.002) {
