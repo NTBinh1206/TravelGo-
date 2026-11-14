@@ -6,33 +6,73 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Báo "quán đã đóng cửa": closed_reports/{id quán}
-    //   name, lat, lng, reporters (danh sách uid người báo), updatedAt (giờ máy chủ)
+    //   name, lat, lng      tên và toạ độ quán
+    //   reporters           uid TÀI KHOẢN THẬT (Google, Facebook) đã báo đóng cửa
+    //   guests              uid tài khoản Khách (ẩn danh) đã báo; không tính vào ngưỡng gắn nhãn
+    //   openers             uid đã bấm "Quán vẫn mở cửa"
+    //   updatedAt           lần ghi gần nhất (giờ máy chủ)
     match /closed_reports/{placeId} {
+
+      // Giá trị cũ của một danh sách; tài liệu tạo trước khi có trường này thì coi là danh sách rỗng.
+      function old(field) {
+        return resource.data.get(field, []);
+      }
+
+      // Danh sách mới = danh sách cũ + đúng uid của mình, mỗi người một lần, không xoá tên người khác.
+      function grewByMe(newList, oldList) {
+        return newList.hasAll(oldList)
+            && newList.size() == oldList.size() + 1
+            && request.auth.uid in newList
+            && !(request.auth.uid in oldList)
+            && newList.size() <= 500;
+      }
+
+      // Đăng nhập Khách (ẩn danh)?
+      function isGuest() {
+        return request.auth.token.firebase.sign_in_provider == 'anonymous';
+      }
+
       // Người đã đăng nhập (kể cả khách ẩn danh) mới được đọc.
       allow read: if request.auth != null;
 
-      // Người đầu tiên báo: chỉ được ghi đúng các trường này, danh sách người báo chỉ có chính mình.
+      // Người đầu tiên báo: chỉ được ghi đúng các trường này; mình nằm đúng danh sách theo loại tài khoản.
       allow create: if request.auth != null
-        && request.resource.data.keys().hasOnly(['name', 'lat', 'lng', 'reporters', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['name', 'lat', 'lng', 'reporters', 'guests', 'openers', 'updatedAt'])
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 200
         && request.resource.data.lat is number
         && request.resource.data.lng is number
-        && request.resource.data.reporters == [request.auth.uid]
+        && request.resource.data.openers == []
+        && (
+             (!isGuest()
+               && request.resource.data.reporters == [request.auth.uid]
+               && request.resource.data.guests == [])
+          || (isGuest()
+               && request.resource.data.reporters == []
+               && request.resource.data.guests == [request.auth.uid])
+           )
         && request.resource.data.updatedAt == request.time;
 
-      // Người báo sau: chỉ được thêm đúng uid của mình vào danh sách (mỗi người một lần),
-      // không được xoá tên người khác, không được sửa tên hay toạ độ quán.
+      // Người sau: chỉ được thêm đúng uid của mình vào MỘT danh sách, hai danh sách kia giữ nguyên.
+      // Tài khoản thật báo vào reporters, Khách báo vào guests; "Quán vẫn mở cửa" (openers) thì ai cũng được.
       allow update: if request.auth != null
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reporters', 'updatedAt'])
-        && !(request.auth.uid in resource.data.reporters)
-        && request.resource.data.reporters.size() == resource.data.reporters.size() + 1
-        && request.resource.data.reporters.hasAll(resource.data.reporters)
-        && request.auth.uid in request.resource.data.reporters
-        && request.resource.data.reporters.size() <= 500
-        && request.resource.data.updatedAt == request.time;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reporters', 'guests', 'openers', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && (
+             (!isGuest()
+               && grewByMe(request.resource.data.get('reporters', []), old('reporters'))
+               && request.resource.data.get('guests', []) == old('guests')
+               && request.resource.data.get('openers', []) == old('openers'))
+          || (isGuest()
+               && grewByMe(request.resource.data.get('guests', []), old('guests'))
+               && request.resource.data.get('reporters', []) == old('reporters')
+               && request.resource.data.get('openers', []) == old('openers'))
+          || (grewByMe(request.resource.data.get('openers', []), old('openers'))
+               && request.resource.data.get('reporters', []) == old('reporters')
+               && request.resource.data.get('guests', []) == old('guests'))
+           );
 
-      // Không ai xoá được từ app; quản trị viên xoá trên Firebase Console nếu quán mở lại.
+      // Không ai xoá được từ app; quản trị viên xoá trên Firebase Console nếu cần dọn dữ liệu.
       allow delete: if false;
     }
 

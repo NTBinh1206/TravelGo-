@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -58,6 +59,8 @@ import com.travelgo.app.data.place.FoodPlaces
 import com.travelgo.app.data.place.Place
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.BlueLight
+import com.travelgo.app.ui.theme.Danger
+import com.travelgo.app.ui.theme.DangerLight
 import com.travelgo.app.ui.theme.Muted
 import com.travelgo.app.ui.theme.Navy
 
@@ -160,8 +163,26 @@ fun ScoreBadge(score: Double, modifier: Modifier = Modifier) {
 }
 
 /**
+ * Nhãn "Có thể đã đóng cửa": quán có đủ người báo (xem ClosedReportRepository) không bị xoá
+ * mà chỉ mờ đi, xếp cuối và mang nhãn này, để báo nhầm thì người khác vẫn thấy và xác nhận lại được.
+ */
+@Composable
+fun ClosedBadge(modifier: Modifier = Modifier) {
+    Text(
+        "Có thể đã đóng cửa",
+        color = Danger,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = modifier
+            .background(DangerLight, RoundedCornerShape(50))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+    )
+}
+
+/**
  * Card ngang: ảnh bên trái, tên, mô tả, nhãn "Nổi bật", khoảng cách (màn 04, 06, 07).
  * [showPin]: hiện icon ghim trước mô tả. [arrowDistance]: hiện icon mũi tên trước km.
+ * [flagged]: quán bị báo "có thể đã đóng cửa" → ảnh mờ đi, hiện nhãn đỏ.
  */
 @Composable
 fun PlaceRowCard(
@@ -172,6 +193,7 @@ fun PlaceRowCard(
     distanceKm: Double? = null,
     showPin: Boolean = true,
     arrowDistance: Boolean = false,
+    flagged: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(20.dp)
@@ -184,7 +206,10 @@ fun PlaceRowCard(
             .clickable(onClick = onClick)
             .padding(9.dp),
     ) {
-        PlaceImage(place, Modifier.size(width = 94.dp, height = 86.dp).clip(RoundedCornerShape(14.dp)))
+        PlaceImage(
+            place,
+            Modifier.size(width = 94.dp, height = 86.dp).clip(RoundedCornerShape(14.dp)).alpha(if (flagged) 0.45f else 1f),
+        )
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f).height(86.dp)) {
             Row(Modifier.fillMaxWidth()) {
@@ -210,7 +235,7 @@ fun PlaceRowCard(
             }
             Spacer(Modifier.weight(1f))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(end = 12.dp)) {
-                ScoreBadge(place.score)
+                if (flagged) ClosedBadge() else ScoreBadge(place.score)
                 Spacer(Modifier.weight(1f))
                 if (distanceKm != null) {
                     if (arrowDistance) {
@@ -231,6 +256,7 @@ fun PlaceTileCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     subtitle: String = place.address,
+    flagged: Boolean = false,
 ) {
     val shape = RoundedCornerShape(20.dp)
     Column(
@@ -242,8 +268,12 @@ fun PlaceTileCard(
             .clickable(onClick = onClick),
     ) {
         Box {
-            PlaceImage(place, Modifier.fillMaxWidth().height(138.dp))
-            ScoreBadge(place.score, Modifier.align(Alignment.TopStart).padding(10.dp))
+            PlaceImage(place, Modifier.fillMaxWidth().height(138.dp).alpha(if (flagged) 0.45f else 1f))
+            if (flagged) {
+                ClosedBadge(Modifier.align(Alignment.TopStart).padding(10.dp))
+            } else {
+                ScoreBadge(place.score, Modifier.align(Alignment.TopStart).padding(10.dp))
+            }
             FavoriteButton(
                 bordered = false,
                 size = 40.dp,

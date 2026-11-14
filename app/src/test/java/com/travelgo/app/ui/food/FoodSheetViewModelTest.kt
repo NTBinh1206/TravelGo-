@@ -17,7 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-/** Báo quán đóng cửa: chỉ gửi ghi chú lên OpenStreetMap khi người dùng đồng ý và đủ người báo. */
+/** Báo quán đóng cửa: chỉ gửi ghi chú lên OpenStreetMap khi người dùng đồng ý và quán bị gắn nhãn. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class FoodSheetViewModelTest {
 
@@ -46,10 +46,11 @@ class FoodSheetViewModelTest {
 
         assertTrue(notes.sent.isEmpty())
         assertTrue(vm.uiState.value.reported)
-        assertTrue("mới có 1 người báo" in vm.uiState.value.message!!)
+        assertTrue("ẩn khỏi danh sách của bạn" in vm.uiState.value.message!!)
+        assertTrue("Chưa gửi ghi chú" in vm.uiState.value.message!!)
     }
 
-    @Test fun secondReport_withConsent_sendsOneNote() = runTest {
+    @Test fun secondRealReport_withConsent_sendsOneNote() = runTest {
         val reports = InMemoryClosedReports().apply { addReport(cafe.id, "someone-else") }
         val notes = FakeNotes()
         val vm = FoodSheetViewModel(reports, notes)
@@ -59,10 +60,28 @@ class FoodSheetViewModelTest {
         advanceUntilIdle()
 
         assertEquals(listOf(cafe.id to 2), notes.sent)
+        assertTrue("gắn nhãn" in vm.uiState.value.message!!)
         assertTrue("Đã gửi ghi chú lên OpenStreetMap" in vm.uiState.value.message!!)
     }
 
-    @Test fun withoutConsent_orNoteFailure_quanIsStillHidden() = runTest {
+    @Test fun guestReports_neverSendNote_norFlag() = runTest {
+        // Hai tài khoản Khách báo: quán chỉ ẩn với người báo, không gắn nhãn, không có ghi chú OSM.
+        val reports = InMemoryClosedReports(myUid = "khach-1", guest = true)
+            .apply { addGuestReport(cafe.id, "khach-0") }
+        val notes = FakeNotes()
+        val vm = FoodSheetViewModel(reports, notes)
+        vm.setShareToOsm(true)
+
+        vm.reportClosed(cafe)
+        advanceUntilIdle()
+
+        assertTrue(notes.sent.isEmpty())
+        assertTrue(cafe.id in reports.hiddenIds.value)
+        assertTrue(cafe.id !in reports.flaggedIds.value)
+        assertTrue("Chưa gửi ghi chú" in vm.uiState.value.message!!)
+    }
+
+    @Test fun withoutConsent_orNoteFailure_quanIsStillFlagged() = runTest {
         val reports = InMemoryClosedReports().apply { addReport(cafe.id, "someone-else") }
         val notes = FakeNotes()
         val vm = FoodSheetViewModel(reports, notes)
@@ -70,7 +89,7 @@ class FoodSheetViewModelTest {
         vm.reportClosed(cafe)
         advanceUntilIdle()
         assertTrue(notes.sent.isEmpty())                       // không tick ô đồng ý thì không gửi
-        assertTrue(cafe.id in reports.hiddenIds.value)
+        assertTrue(cafe.id in reports.flaggedIds.value)
 
         val failing = FakeNotes(Result.failure(RuntimeException("HTTP 403")))
         val vm2 = FoodSheetViewModel(reports, failing)
@@ -79,5 +98,20 @@ class FoodSheetViewModelTest {
         advanceUntilIdle()
         assertTrue(vm2.uiState.value.reported)                 // báo quán vẫn thành công
         assertTrue("Chưa gửi được ghi chú" in vm2.uiState.value.message!!)
+    }
+
+    @Test fun confirmOpen_marksReported_withOwnMessage() = runTest {
+        val reports = InMemoryClosedReports(myUid = "an")
+            .apply { addReport(cafe.id, "b"); addReport(cafe.id, "c") }
+        val vm = FoodSheetViewModel(reports, FakeNotes())
+
+        vm.confirmOpen(cafe)
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.reported)
+        assertEquals(FoodSheetViewModel.OPEN_THANKS, vm.uiState.value.message)
+        assertTrue(cafe.id in reports.flaggedIds.value)        // 1 xác nhận < 2 người báo: nhãn còn
+        reports.addOpenConfirm(cafe.id, "d")
+        assertTrue(cafe.id !in reports.flaggedIds.value)       // đủ người xác nhận: nhãn được gỡ
     }
 }

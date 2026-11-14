@@ -23,9 +23,10 @@ data class FoodSheetUiState(
 )
 
 /**
- * ViewModel của tấm thông tin quán: gửi báo "quán đã đóng cửa".
- * Nếu người dùng tick ô đồng ý và quán đã có từ [ClosedReportRepository.HIDE_FOR_EVERYONE] người báo,
- * gửi thêm một ghi chú lên OpenStreetMap để người vẽ bản đồ sửa dữ liệu gốc.
+ * ViewModel của tấm thông tin quán: báo "quán đã đóng cửa" hoặc xác nhận "quán vẫn mở cửa".
+ * Nếu người dùng tick ô đồng ý và quán vừa bị gắn nhãn (đủ [ClosedReportRepository.FLAG_FOR_EVERYONE]
+ * tài khoản thật báo, chưa ai xác nhận còn mở), gửi thêm một ghi chú lên OpenStreetMap
+ * để người vẽ bản đồ sửa dữ liệu gốc.
  */
 class FoodSheetViewModel(
     private val reports: ClosedReportRepository = AppContainer.closedReports,
@@ -34,6 +35,9 @@ class FoodSheetViewModel(
 
     private val _uiState = MutableStateFlow(FoodSheetUiState())
     val uiState: StateFlow<FoodSheetUiState> = _uiState.asStateFlow()
+
+    /** Quán đang gắn nhãn "Có thể đã đóng cửa" (để tấm thông tin hiện nút "Quán vẫn mở cửa"). */
+    val flaggedIds: StateFlow<Set<String>> = reports.flaggedIds
 
     fun setShareToOsm(share: Boolean) = _uiState.update { it.copy(shareToOsm = share) }
 
@@ -48,13 +52,25 @@ class FoodSheetViewModel(
                 }
                 return@launch
             }
-            val note = if (share && count >= ClosedReportRepository.HIDE_FOR_EVERYONE) {
-                notes.reportClosed(place, count)
-            } else {
-                null
-            }
+            // Nhãn tính lại ngay từ bản sao cục bộ, nên đọc được liền sau khi báo.
+            val flaggedNow = place.id in reports.flaggedIds.value
+            val note = if (share && flaggedNow) notes.reportClosed(place, count) else null
             _uiState.update {
-                it.copy(sending = false, reported = true, message = thanks(count) + noteLine(share, count, note))
+                it.copy(sending = false, reported = true, message = thanks(flaggedNow) + noteLine(share, flaggedNow, note))
+            }
+        }
+    }
+
+    fun confirmOpen(place: Place) {
+        if (_uiState.value.sending) return
+        _uiState.update { it.copy(sending = true, reported = false, message = null) }
+        viewModelScope.launch {
+            val result = reports.confirmOpen(place)
+            _uiState.update {
+                result.fold(
+                    onSuccess = { _ -> it.copy(sending = false, reported = true, message = OPEN_THANKS) },
+                    onFailure = { e -> it.copy(sending = false, message = (e as? ReportClosedException)?.message ?: FAILED) },
+                )
             }
         }
     }
@@ -63,19 +79,21 @@ class FoodSheetViewModel(
 
     companion object {
         const val FAILED = "Chưa gửi được, kiểm tra mạng rồi thử lại."
+        const val OPEN_THANKS = "Cảm ơn bạn! Đã ghi nhận quán vẫn mở cửa."
 
-        fun thanks(count: Int): String =
-            if (count >= ClosedReportRepository.HIDE_FOR_EVERYONE) {
-                "Cảm ơn bạn! Đã có $count người báo nên quán được ẩn với mọi người."
+        fun thanks(flaggedNow: Boolean): String =
+            if (flaggedNow) {
+                "Cảm ơn bạn! Quán được gắn nhãn \"Có thể đã đóng cửa\" với mọi người."
             } else {
                 "Cảm ơn bạn! Quán đã ẩn khỏi danh sách của bạn."
             }
 
         /** Câu nói thêm về ghi chú OSM; rỗng nếu người dùng không chọn gửi. */
-        fun noteLine(share: Boolean, count: Int, note: Result<NoteOutcome>?): String = when {
+        fun noteLine(share: Boolean, flaggedNow: Boolean, note: Result<NoteOutcome>?): String = when {
             !share -> ""
-            count < ClosedReportRepository.HIDE_FOR_EVERYONE ->
-                " Chưa gửi ghi chú lên OpenStreetMap vì quán mới có $count người báo."
+            !flaggedNow ->
+                " Chưa gửi ghi chú lên OpenStreetMap vì chưa đủ " +
+                    "${ClosedReportRepository.FLAG_FOR_EVERYONE} tài khoản Google/Facebook cùng báo."
             note == null -> ""
             note.isFailure -> " Chưa gửi được ghi chú lên OpenStreetMap."
             note.getOrNull() is NoteOutcome.AlreadyOpen -> " OpenStreetMap đã có ghi chú về quán này, không gửi thêm."
