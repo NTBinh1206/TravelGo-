@@ -9,8 +9,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.security.KeyStore
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLException
+import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509TrustManager
 
 /**
  * Quãng đường, thời gian theo đường bộ từ máy chủ OSRM công cộng (miễn phí, không cần khoá API).
@@ -21,8 +26,9 @@ import java.util.concurrent.TimeUnit
  * - Máy chủ công cộng chỉ dành cho thử nghiệm, nhiều nhất khoảng 1 yêu cầu mỗi giây: hợp với đồ án,
  *   khi phát hành thật cần tự dựng máy chủ OSRM hoặc dùng dịch vụ trả phí.
  * - Thời gian OSRM tính theo đường thông thoáng cho ô tô, chưa tính kẹt xe.
- * - Dùng OkHttp thay cho HttpURLConnection: trên máy thử, HttpURLConnection bị máy chủ OSRM từ chối
- *   ở bước bắt tay TLS (SSLV3_ALERT_HANDSHAKE_FAILURE), còn Chrome trên cùng máy kết nối bình thường.
+ * - Bắt tay TLS: trên máy thử, bộ mã hoá mặc định của app (Conscrypt do Google Play services cài vào)
+ *   bị máy chủ OSRM từ chối (SSLV3_ALERT_HANDSHAKE_FAILURE), trong khi Chrome trên cùng máy vẫn vào được.
+ *   Khi gặp lỗi đó, app thử lại bằng bộ TLS gốc của Android ("AndroidOpenSSL").
  */
 class OsrmRouter(
     private val servers: List<String> = listOf(
@@ -35,6 +41,17 @@ class OsrmRouter(
         .connectTimeout(TIMEOUT_S, TimeUnit.SECONDS)
         .readTimeout(TIMEOUT_S, TimeUnit.SECONDS)
         .build()
+
+    /** Cùng cấu hình nhưng dùng bộ TLS gốc của Android; null nếu máy không có. */
+    private val platformTls: OkHttpClient? by lazy {
+        runCatching {
+            val tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+            tmf.init(null as KeyStore?)
+            val trust = tmf.trustManagers.filterIsInstance<X509TrustManager>().first()
+            val context = SSLContext.getInstance("TLS", "AndroidOpenSSL").apply { init(null, arrayOf(trust), null) }
+            http.newBuilder().sslSocketFactory(context.socketFactory, trust).build()
+        }.onFailure { Log.w(TAG, "Không tạo được TLS gốc: ${it.message}") }.getOrNull()
+    }
 
     private val tables = ConcurrentHashMap<String, TravelTable>()
     private val paths = ConcurrentHashMap<String, List<GeoPoint>>()
@@ -69,11 +86,20 @@ class OsrmRouter(
 
     private fun get(url: String): String {
         val request = Request.Builder().url(url).header("User-Agent", AGENT).build()
-        http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) error("HTTP ${response.code}")
-            return response.body?.string() ?: error("Không có nội dung")
+        return try {
+            call(http, request)
+        } catch (e: SSLException) {
+            val fallback = platformTls ?: throw e
+            Log.i(TAG, "Bắt tay TLS lỗi (${e.message}), thử lại bằng TLS gốc của Android")
+            call(fallback, request)
         }
     }
+
+    private fun call(client: OkHttpClient, request: Request): String =
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) error("HTTP ${response.code}")
+            response.body?.string() ?: error("Không có nội dung")
+        }
 
     private companion object {
         const val TAG = "OsrmRouter"
