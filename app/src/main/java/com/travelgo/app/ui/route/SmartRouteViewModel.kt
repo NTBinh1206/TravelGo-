@@ -88,14 +88,14 @@ class SmartRouteViewModel(
         .stateIn(viewModelScope, SharingStarted.Lazily, LoadState.Loading)
 
     // Bảng km, phút theo đường bộ: hỏi OSRM một lần khi đã có danh sách điểm. Trong lúc chờ, lộ trình dùng số ước lượng.
-    private val table = places.flatMapLatest { state ->
+    private val table: StateFlow<TableState> = places.flatMapLatest { state ->
         if (state is LoadState.Ready) {
-            flow {
+            flow<TableState> {
                 emit(TableState.Loading)
                 emit(router.table(start, state.data)?.let { TableState.Road(it) } ?: TableState.Failed)
             }
         } else {
-            flowOf(TableState.Loading)
+            flowOf<TableState>(TableState.Loading)
         }
     }.stateIn(viewModelScope, SharingStarted.Lazily, TableState.Loading)
 
