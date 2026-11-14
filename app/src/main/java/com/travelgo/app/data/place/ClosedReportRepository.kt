@@ -23,7 +23,8 @@ data class ReportTally(
  * - Ai báo thì quán ẩn ngay, nhưng CHỈ với chính họ.
  * - Đủ [FLAG_FOR_EVERYONE] tài khoản thật (Google, Facebook) báo thì quán không biến mất mà được
  *   gắn nhãn "Có thể đã đóng cửa" với mọi người: mờ đi, xếp cuối danh sách. Tài khoản Khách không được tính.
- * - Ai thấy quán vẫn mở thì bấm "Quán vẫn mở cửa"; số người xác nhận bằng số người báo là nhãn được gỡ.
+ * - Ai thấy quán vẫn mở thì bấm "Quán vẫn mở cửa" (cũng chỉ tài khoản thật); số người xác nhận bằng số người
+ *   báo là nhãn được gỡ.
  *
  * Bản thật: [FirestoreClosedReports] (Cloud Firestore, gói Spark miễn phí).
  * Bản giả để chạy test: [InMemoryClosedReports].
@@ -38,10 +39,13 @@ interface ClosedReportRepository {
     /** Báo [place] đã đóng cửa. Trả về số TÀI KHOẢN THẬT đã báo quán này (kể cả mình, nếu không phải Khách). */
     suspend fun reportClosed(place: Place): Result<Int>
 
-    /** Xác nhận [place] vẫn mở cửa (gỡ nhãn khi đủ người xác nhận). */
+    /** Xác nhận [place] vẫn mở cửa (gỡ nhãn khi đủ người xác nhận). Khách không được xác nhận. */
     suspend fun confirmOpen(place: Place): Result<Unit>
 
     companion object {
+        /** Câu báo khi tài khoản Khách bấm "Quán vẫn mở cửa". */
+        const val GUEST_CANNOT_CONFIRM = "Đăng nhập bằng Google hoặc Facebook để xác nhận quán vẫn mở cửa."
+
         /** Đủ ngần này TÀI KHOẢN THẬT báo thì gắn nhãn với mọi người. Khách báo chỉ ẩn với chính họ. */
         const val FLAG_FOR_EVERYONE = 2
 
@@ -93,6 +97,7 @@ class InMemoryClosedReports(
     )
 
     override suspend fun confirmOpen(place: Place): Result<Unit> {
+        if (guest) return Result.failure(ReportClosedException(ClosedReportRepository.GUEST_CANNOT_CONFIRM))
         change(place.id) { it.copy(openers = it.openers + myUid) }
         return Result.success(Unit)
     }

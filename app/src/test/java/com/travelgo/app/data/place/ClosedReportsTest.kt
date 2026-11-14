@@ -4,6 +4,7 @@ import com.travelgo.app.data.place.ClosedReportRepository.Companion.flaggedPlace
 import com.travelgo.app.data.place.ClosedReportRepository.Companion.hiddenPlaceIds
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Quy tắc ẩn / gắn nhãn quán bị báo đã đóng cửa. */
@@ -62,5 +63,9 @@ class ClosedReportsTest {
         assertEquals(0, repo.reportClosed(quan).getOrThrow()) // Khách: số tài khoản thật vẫn 0
         assertEquals(setOf("n9"), repo.hiddenIds.value)       // vẫn ẩn với chính mình
         assertEquals(emptySet<String>(), repo.flaggedIds.value)
+
+        repo.addReport("n9", "an"); repo.addReport("n9", "tin")  // 2 tài khoản thật báo → nhãn
+        assertTrue(repo.confirmOpen(quan).isFailure)          // Khách không gỡ nhãn được
+        assertEquals(setOf("n9"), repo.flaggedIds.value)
     }
 }

@@ -54,7 +54,7 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
 
       // Người sau: chỉ được thêm đúng uid của mình vào MỘT danh sách, hai danh sách kia giữ nguyên.
-      // Tài khoản thật báo vào reporters, Khách báo vào guests; "Quán vẫn mở cửa" (openers) thì ai cũng được.
+      // Tài khoản thật báo vào reporters, Khách báo vào guests; "Quán vẫn mở cửa" (openers) chỉ tài khoản thật.
       allow update: if request.auth != null
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reporters', 'guests', 'openers', 'updatedAt'])
         && request.resource.data.updatedAt == request.time
@@ -67,7 +67,8 @@ service cloud.firestore {
                && grewByMe(request.resource.data.get('guests', []), old('guests'))
                && request.resource.data.get('reporters', []) == old('reporters')
                && request.resource.data.get('openers', []) == old('openers'))
-          || (grewByMe(request.resource.data.get('openers', []), old('openers'))
+          || (!isGuest()
+               && grewByMe(request.resource.data.get('openers', []), old('openers'))
                && request.resource.data.get('reporters', []) == old('reporters')
                && request.resource.data.get('guests', []) == old('guests'))
            );

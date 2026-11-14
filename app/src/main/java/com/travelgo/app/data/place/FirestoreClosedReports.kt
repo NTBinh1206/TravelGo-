@@ -131,7 +131,9 @@ class FirestoreClosedReports(
         }
     }
 
-    override suspend fun confirmOpen(place: Place): Result<Unit> = write(place) { me, _ ->
+    override suspend fun confirmOpen(place: Place): Result<Unit> = write(place) { me, anonymous ->
+        // Khách tạo tài khoản mới mỗi lần đăng nhập, nên cũng không được tính khi gỡ nhãn.
+        if (anonymous) throw ReportClosedException(ClosedReportRepository.GUEST_CANNOT_CONFIRM)
         val ref = db.collection(COLLECTION).document(place.id)
         ref.update(mapOf(OPENERS to FieldValue.arrayUnion(me), UPDATED_AT to FieldValue.serverTimestamp()))
             .awaitResult()
