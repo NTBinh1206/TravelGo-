@@ -56,7 +56,13 @@ class FoodSheetViewModel(
             val flaggedNow = place.id in reports.flaggedIds.value
             val note = if (share && flaggedNow) notes.reportClosed(place, count) else null
             _uiState.update {
-                it.copy(sending = false, reported = true, message = thanks(flaggedNow) + noteLine(share, flaggedNow, note))
+                // Bỏ tick sau mỗi lần báo: đồng ý gửi ghi chú công khai chỉ áp dụng cho lần báo này.
+                it.copy(
+                    sending = false,
+                    reported = true,
+                    shareToOsm = false,
+                    message = thanks(flaggedNow) + noteLine(share, flaggedNow, note),
+                )
             }
         }
     }

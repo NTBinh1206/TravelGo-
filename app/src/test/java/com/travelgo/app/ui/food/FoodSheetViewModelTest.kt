@@ -62,6 +62,7 @@ class FoodSheetViewModelTest {
         assertEquals(listOf(cafe.id to 2), notes.sent)
         assertTrue("gắn nhãn" in vm.uiState.value.message!!)
         assertTrue("Đã gửi ghi chú lên OpenStreetMap" in vm.uiState.value.message!!)
+        assertTrue(!vm.uiState.value.shareToOsm)             // lần báo sau phải tick lại
     }
 
     @Test fun guestReports_neverSendNote_norFlag() = runTest {
