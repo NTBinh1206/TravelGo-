@@ -184,7 +184,12 @@ fun HomeScreen(
             ) {
                 items(food, key = { it.id }) { place ->
                     // Chạm vào quán: hiện tấm thông tin (mở Google Maps, báo quán đã đóng cửa).
-                    PlaceTileCard(place = place, subtitle = place.tagline, onClick = { selectedFood = place })
+                    PlaceTileCard(
+                        place = place,
+                        subtitle = place.tagline,
+                        flagged = place.id in state.flaggedFood,
+                        onClick = { selectedFood = place },
+                    )
                 }
             }
         }

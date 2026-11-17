@@ -8,6 +8,8 @@ import com.travelgo.app.data.location.FusedLocationProvider
 import com.travelgo.app.data.place.ClosedReportRepository
 import com.travelgo.app.data.place.FirestoreClosedReports
 import com.travelgo.app.data.location.LocationProvider
+import com.travelgo.app.data.place.OsmNoteSender
+import com.travelgo.app.data.place.OsmNotesClient
 import com.travelgo.app.data.place.OsmPlaceRepository
 import com.travelgo.app.data.place.PlaceRepository
 import com.travelgo.app.data.route.OsrmRouter
@@ -61,6 +63,8 @@ object AppContainer {
     val authRepository: AuthRepository by lazy { AuthRepository() }
     // Người dùng báo quán đã đóng cửa (Cloud Firestore). Muốn chạy không cần Firebase: InMemoryClosedReports().
     val closedReports: ClosedReportRepository by lazy { FirestoreClosedReports() }
+    // Gửi ghi chú "quán có thể đã đóng" lên OpenStreetMap khi người dùng đồng ý (ẩn danh, không cần tài khoản).
+    val osmNotes: OsmNoteSender by lazy { OsmNotesClient() }
     // Quãng đường, thời gian, đường đi theo đường bộ (OSRM). Muốn tắt: NoRoadRouter, app quay về số ước lượng.
     val roadRouter: RoadRouter by lazy { OsrmRouter() }
 }

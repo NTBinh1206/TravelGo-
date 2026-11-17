@@ -32,6 +32,7 @@ data class HomeUiState(
     val featured: List<Place> = emptyList(),
     val nearby: LoadState<List<Place>> = LoadState.Loading,
     val food: LoadState<List<Place>> = LoadState.Loading,
+    val flaggedFood: Set<String> = emptySet(), // quán gắn nhãn "có thể đã đóng cửa"
 )
 
 /** ViewModel màn 03 · Trang chủ: tên vị trí, điểm đến nổi bật, 10 điểm gần bạn, 10 quán ăn uống gần bạn. */
@@ -66,13 +67,16 @@ class HomeViewModel(
         .flatMapLatest { center -> loadFlow { places.getFoodPlaces(center) } }
         .stateIn(viewModelScope, SharingStarted.Lazily, LoadState.Loading)
 
-    private val food = combine(allFood, closedReports.hiddenIds) { state, hidden ->
-        state.map { list -> list.filterNot { it.id in hidden }.take(HOME_FOOD_COUNT) }
+    private val food = combine(allFood, closedReports.hiddenIds, closedReports.flaggedIds) { state, hidden, flagged ->
+        // Bỏ quán mình đã báo; quán gắn nhãn "có thể đã đóng cửa" vẫn hiện nhưng mờ đi và xếp cuối.
+        state.map { list ->
+            list.filterNot { it.id in hidden }.sortedBy { it.id in flagged }.take(HOME_FOOD_COUNT)
+        } to flagged
     }
 
     val uiState: StateFlow<HomeUiState> =
-        combine(location.placeName, location.currentLocation, featured, nearby, food) { name, me, featuredList, nearbyState, foodState ->
-            HomeUiState(placeName = name, me = me, featured = featuredList, nearby = nearbyState, food = foodState)
+        combine(location.placeName, location.currentLocation, featured, nearby, food) { name, me, featuredList, nearbyState, (foodState, flagged) ->
+            HomeUiState(placeName = name, me = me, featured = featuredList, nearby = nearbyState, food = foodState, flaggedFood = flagged)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     fun retry() {

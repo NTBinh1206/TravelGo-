@@ -56,6 +56,7 @@ data class ExploreUiState(
     val sort: SortOption = SortOption.NEAREST,
     val foodKind: FoodKind = FoodKind.ALL,
     val places: LoadState<List<Place>> = LoadState.Loading, // đã lọc + sắp xếp
+    val flaggedFood: Set<String> = emptySet(),            // quán gắn nhãn "có thể đã đóng cửa"
 ) {
     val isFood: Boolean get() = category == FOOD_GROUP
 }
@@ -98,28 +99,30 @@ class ExploreViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, LoadState.Loading)
 
-    // Bỏ quán người dùng báo đã đóng cửa; có người báo mới thì danh sách tự cập nhật.
+    // Bỏ quán mình đã báo đóng cửa; có người báo mới thì danh sách tự cập nhật.
     private val food = combine(allFood, closedReports.hiddenIds) { state, hidden ->
         state.map { list -> list.filterNot { it.id in hidden } }
     }
 
-    private val source = combine(category, nearby, food) { cat, nearbyState, foodState ->
-        if (cat == FOOD_GROUP) foodState else nearbyState
+    private val source = combine(category, nearby, food, closedReports.flaggedIds) { cat, nearbyState, foodState, flagged ->
+        (if (cat == FOOD_GROUP) foodState else nearbyState) to flagged
     }
 
     val uiState: StateFlow<ExploreUiState> =
-        combine(location.currentLocation, category, sort, foodKind, source) { current, cat, order, kind, state ->
+        combine(location.currentLocation, category, sort, foodKind, source) { current, cat, order, kind, (state, flagged) ->
             val me = current ?: GeoPoint.DEFAULT
             ExploreUiState(
                 me = me,
                 category = cat,
                 sort = order,
                 foodKind = kind,
+                flaggedFood = flagged,
                 places = state.map { list ->
                     if (cat == FOOD_GROUP) {
-                        // Quán không có điểm đánh giá nên chỉ xếp theo khoảng cách.
+                        // Quán không có điểm đánh giá nên xếp theo khoảng cách; quán gắn nhãn "có thể đã
+                        // đóng cửa" xếp cuối.
                         list.filter { kind.category == null || it.category == kind.category }
-                            .sortedBy { me.distanceKmTo(it.location) }
+                            .sortedWith(compareBy({ it.id in flagged }, { me.distanceKmTo(it.location) }))
                     } else {
                         list.filter { cat == null || it.category == cat }.let { filtered ->
                             when (order) {

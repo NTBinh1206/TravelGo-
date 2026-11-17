@@ -16,6 +16,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Storefront
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -42,8 +44,10 @@ import com.travelgo.app.components.PlaceImage
 import com.travelgo.app.components.PrimaryButton
 import com.travelgo.app.data.model.formatKm
 import com.travelgo.app.data.place.ClosedReportRepository
+import com.travelgo.app.data.place.OsmNotes
 import com.travelgo.app.data.place.Place
 import com.travelgo.app.ui.common.openPlaceInGoogleMaps
+import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.Danger
 import com.travelgo.app.ui.theme.DangerLight
 import com.travelgo.app.ui.theme.Muted
@@ -64,6 +68,7 @@ fun FoodPlaceSheet(
 ) {
     val context = LocalContext.current
     val ui by viewModel.uiState.collectAsStateWithLifecycle()
+    val flaggedIds by viewModel.flaggedIds.collectAsStateWithLifecycle()
 
     // Báo xong (hoặc lỗi) thì hiện một dòng thông báo ngắn.
     LaunchedEffect(ui.message) {
@@ -105,6 +110,27 @@ fun FoodPlaceSheet(
                 onClick = { openPlaceInGoogleMaps(context, place) },
             )
 
+            if (place.id in flaggedIds) {
+                // Báo nhầm vẫn sửa được: ai thấy quán còn bán thì xác nhận, đủ người là nhãn được gỡ.
+                Text(
+                    "Nhiều người báo quán này đã đóng cửa nên quán đang mờ đi, xếp cuối danh sách. " +
+                        "Nếu bạn biết quán vẫn bán, hãy xác nhận giúp mọi người.",
+                    color = Danger, fontSize = 13.sp,
+                )
+                TextButton(
+                    onClick = { viewModel.confirmOpen(place) },
+                    enabled = !ui.sending,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Outlined.Storefront, contentDescription = null, tint = Blue, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (ui.sending) "Đang gửi…" else "Quán vẫn mở cửa",
+                        color = Blue, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+
             if (!confirming) {
                 TextButton(onClick = { confirming = true }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Outlined.Storefront, contentDescription = null, tint = Danger, modifier = Modifier.size(20.dp))
@@ -120,10 +146,31 @@ fun FoodPlaceSheet(
                         .padding(start = 14.dp, end = 4.dp, top = 12.dp),
                 ) {
                     Text(
-                        "Bạn chắc quán này đã đóng cửa? Quán sẽ ẩn với bạn ngay, và ẩn với mọi người khi có " +
-                            "${ClosedReportRepository.HIDE_FOR_EVERYONE} người báo.",
+                        "Bạn chắc quán này đã đóng cửa? Quán sẽ ẩn với bạn ngay; khi có từ " +
+                            "${ClosedReportRepository.FLAG_FOR_EVERYONE} tài khoản Google/Facebook báo, quán được " +
+                            "gắn nhãn \"Có thể đã đóng cửa\" với mọi người.",
                         color = Navy, fontSize = 14.sp, modifier = Modifier.padding(end = 10.dp),
                     )
+                    if (OsmNotes.canReport(place)) {
+                        // Ghi chú trên OSM là công khai nên người dùng phải tự tick, mặc định không gửi.
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 4.dp, end = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = ui.shareToOsm,
+                                onCheckedChange = viewModel::setShareToOsm,
+                                enabled = !ui.sending,
+                                colors = CheckboxDefaults.colors(checkedColor = Danger),
+                            )
+                            Text(
+                                "Gửi kèm ghi chú công khai lên OpenStreetMap khi quán có từ " +
+                                    "${ClosedReportRepository.FLAG_FOR_EVERYONE} tài khoản Google/Facebook báo, " +
+                                    "để người vẽ bản đồ kiểm tra lại",
+                                color = Navy, fontSize = 13.sp,
+                            )
+                        }
+                    }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = { confirming = false }, enabled = !ui.sending) {
                             Text("Huỷ", color = Muted, fontSize = 15.sp)
