@@ -23,12 +23,16 @@ import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Park
+import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.Terrain
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Waves
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,10 +44,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.travelgo.app.components.FavoriteButton
+import com.travelgo.app.data.place.FoodPlaces
 import com.travelgo.app.ui.common.EmptyActionButton
 import com.travelgo.app.ui.common.LoadStatus
 import com.travelgo.app.ui.common.NO_NEARBY_TEXT
 import com.travelgo.app.ui.common.dataOrNull
+import com.travelgo.app.data.place.Place
+import com.travelgo.app.ui.food.FoodPlaceSheet
 import com.travelgo.app.components.PillChip
 import com.travelgo.app.components.PlaceRowCard
 import com.travelgo.app.components.SearchBarButton
@@ -62,6 +69,7 @@ private val categories = listOf(
     Category("thanh_pho", "Thành phố", Icons.Outlined.Apartment),
     Category("van_hoa", "Văn hóa", Icons.Outlined.AccountBalance),
     Category("thien_nhien", "Thiên nhiên", Icons.Outlined.Park),
+    Category(FOOD_GROUP, "Ăn uống", Icons.Outlined.Restaurant),
 )
 
 /** 04 · Khám phá (Người 2). Lọc/sắp xếp nằm trong [ExploreViewModel], màn hình chỉ hiển thị. */
@@ -77,6 +85,7 @@ fun ExploreScreen(
     val category = state.category
     val sort = state.sort
     val shown = state.places.dataOrNull.orEmpty()
+    var selectedFood by remember { mutableStateOf<Place?>(null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
@@ -106,30 +115,64 @@ fun ExploreScreen(
                 }
             }
         }
-        item { SortBar(sort = sort, onChange = viewModel::selectSort) }
+        if (state.isFood) {
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FoodKind.entries.forEach { kind ->
+                        PillChip(label = kind.label, selected = state.foodKind == kind, onClick = { viewModel.selectFoodKind(kind) })
+                    }
+                }
+            }
+        } else {
+            item { SortBar(sort = sort, onChange = viewModel::selectSort) }
+        }
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                Text("Địa điểm phổ biến", color = Navy, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text("${shown.size} địa điểm", color = Muted, fontSize = 14.sp)
+                Text(
+                    if (state.isFood) "Ăn uống quanh bạn" else "Địa điểm phổ biến",
+                    color = Navy, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
+                )
+                Text(if (state.isFood) "${shown.size} quán" else "${shown.size} địa điểm", color = Muted, fontSize = 14.sp)
+            }
+        }
+        if (state.isFood && shown.isNotEmpty()) {
+            item {
+                // OSM không có điểm đánh giá: nói rõ để người dùng không hiểu nhầm là quán được xếp hạng.
+                Text(
+                    "Chạm vào quán để xem ảnh, đánh giá trên Google Maps hoặc báo quán đã đóng cửa. Dữ liệu quán từ OpenStreetMap.",
+                    color = Muted, fontSize = 13.sp,
+                )
             }
         }
         item {
             LoadStatus(
                 state = state.places,
                 onRetry = viewModel::retry,
-                emptyText = if (category != null) "Không có địa điểm nào thuộc loại này quanh bạn." else NO_NEARBY_TEXT,
+                emptyText = when {
+                    state.isFood -> "Chưa tìm thấy quán ăn, quán nước nào trong 2 km quanh bạn trên OpenStreetMap."
+                    category != null -> "Không có địa điểm nào thuộc loại này quanh bạn."
+                    else -> NO_NEARBY_TEXT
+                },
                 emptyAction = { EmptyActionButton("Chọn vị trí khác", onChangeLocation) },
             )
         }
         items(shown, key = { it.id }) { place ->
+            val isFoodPlace = FoodPlaces.isFood(place.category)
             PlaceRowCard(
                 place = place,
+                subtitle = if (isFoodPlace) place.tagline else place.address,
                 distanceKm = me.distanceKmTo(place.location),
-                onClick = { /* TODO(Người 2): mở chi tiết */ },
+                onClick = { if (isFoodPlace) selectedFood = place /* TODO(Người 2): chi tiết điểm du lịch */ },
                 trailing = { FavoriteButton() },
             )
         }
     }
+
+    FoodPlaceSheet(
+        place = selectedFood,
+        distanceKm = selectedFood?.let { me.distanceKmTo(it.location) },
+        onDismiss = { selectedFood = null },
+    )
 }
 
 @Composable

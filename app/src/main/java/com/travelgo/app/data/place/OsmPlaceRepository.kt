@@ -7,10 +7,13 @@ import com.travelgo.app.data.model.GeoPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
@@ -23,6 +26,8 @@ import java.util.concurrent.ConcurrentHashMap
  *   chạy ngay, không cần mạng.
  * - Tìm kiếm: tìm ngay trong bộ dữ liệu (không dấu). Ít kết quả quá thì hỏi thêm Nominatim (OSM, cần mạng).
  * - Ảnh: điểm có bài Wikipedia / mã Wikidata thì hỏi Wikipedia (cần mạng; mạng chậm thì hiện thẻ trước, ảnh có ở lần sau).
+ * - Quán ăn, quán nước: bộ dữ liệu làm sẵn (FoodDataset, assets/food_vn.tsv); vùng nào không có thì hỏi
+ *   Overpass quanh vị trí (cần mạng). Giữ kết quả 30 phút. Xem [FoodPlaces].
  * - Lưu tạm mọi điểm đã trả về theo id, để màn Lộ trình (08) gọi getPlacesByIds() lấy lại được.
  */
 class OsmPlaceRepository(
@@ -31,11 +36,18 @@ class OsmPlaceRepository(
 ) : PlaceRepository {
 
     private val dataset = PlaceDataset(context.applicationContext)
+    private val foodDataset = FoodDataset(context.applicationContext)
     private val byId = ConcurrentHashMap<String, Place>()
     private val wikiCache = ConcurrentHashMap<String, WikiInfo>()
     private val nominatimCache = ConcurrentHashMap<String, CacheEntry>()
+    private val foodCache = ConcurrentHashMap<String, Pair<Long, List<Place>>>()
 
     private val nominatimLock = Mutex()
+    /**
+     * Trang chủ và Khám phá cùng hỏi quán ở cùng một chỗ: dùng chung một yêu cầu, không gửi 2 lần.
+     * Chỗ khác nhau (vd. GPS cũ và tỉnh vừa chọn) thì chạy riêng, không phải chờ nhau.
+     */
+    private val foodInFlight = ConcurrentHashMap<String, Deferred<List<Place>>>()
     private var lastNominatimCall = 0L
 
     // Tải ảnh Wikipedia chạy nền: màn hình không phải chờ, ảnh về thì lưu lại cho lần sau.
@@ -121,15 +133,100 @@ class OsmPlaceRepository(
         if (missing.isNotEmpty()) {
             val fromDataset = missing.mapNotNull { dataset.byId(it)?.toRaw() }
             if (fromDataset.isNotEmpty()) buildPlaces(fromDataset)
+            missing.filter { !byId.containsKey(it) }
+                .mapNotNull { foodDataset.byId(it)?.toFoodPlace() }
+                .forEach { byId[it.id] = it }
             val stillMissing = missing.filter { id ->
                 !byId.containsKey(id) && id.length > 1 && id[0] in "nwr" && id.drop(1).all(Char::isDigit)
             }
             if (stillMissing.isNotEmpty()) {
-                runCatching { buildPlaces(parseOverpass(postOverpass(lookupQuery(stillMissing)))) }
+                runCatching {
+                    val (food, others) = parseOverpass(postOverpass(lookupQuery(stillMissing)))
+                        .partition { FoodPlaces.isFoodAmenity(it.tags) } // quán đã đóng cửa thì bỏ hẳn
+                    food.mapNotNull { it.toFoodPlace() }.forEach { byId[it.id] = it }
+                    buildPlaces(others)
+                }
                     .onFailure { Log.w(TAG, "Không tải lại được $stillMissing", it) }
             }
         }
         return ids.mapNotNull { byId[it] }
+    }
+
+    // ---------------- Ăn uống ----------------
+
+    override suspend fun getFoodPlaces(center: GeoPoint): List<Place> {
+        // Làm tròn khoảng 1 km: xê dịch ít thì dùng lại kết quả cũ, không hỏi lại máy chủ.
+        val key = String.format(Locale.US, "%.2f,%.2f", center.lat, center.lng)
+        foodCache[key]?.let { (time, list) -> if (now() - time < CACHE_TTL_MS) return list }
+
+        // Có sẵn trong app (assets/food_vn.tsv) thì dùng luôn, không cần mạng.
+        val bundled = foodDataset.near(center, FoodPlaces.RADIUS_M / 1000.0)
+        if (bundled.isNotEmpty()) {
+            val places = bundled.mapNotNull { it.toFoodPlace() }
+                .sortedBy { center.distanceKmTo(it.location) }
+                .take(FoodPlaces.MAX_RESULTS)
+            places.forEach { byId[it.id] = it }
+            foodCache[key] = now() to places
+            return places
+        }
+
+        // Không có (chưa tạo file, hoặc vùng file chưa phủ): hỏi Overpass.
+        val request = foodInFlight.computeIfAbsent(key) {
+            scope.async(start = CoroutineStart.LAZY) { fetchFood(center, key) }
+        }
+        try {
+            return request.await()
+        } finally {
+            foodInFlight.remove(key, request) // xong hoặc lỗi thì lần sau hỏi lại từ đầu
+        }
+    }
+
+    private suspend fun fetchFood(center: GeoPoint, key: String): List<Place> {
+        val json = postOverpass(FoodPlaces.overpassQuery(center.lat, center.lng))
+        val places = withContext(Dispatchers.Default) {
+            parseOverpass(json)
+                .mapNotNull { it.toFoodPlace() }
+                .distinctBy { it.id }
+                .sortedBy { center.distanceKmTo(it.location) }
+                .take(FoodPlaces.MAX_RESULTS)
+        }
+        places.forEach { byId[it.id] = it }
+        foodCache[key] = now() to places
+        Log.d(TAG, "Ăn uống: ${places.size} quán quanh $center")
+        return places
+    }
+
+    private fun FoodDataset.Entry.toFoodPlace(): Place? {
+        val category = FoodPlaces.categoryOf(tags) ?: return null
+        return Place(
+            id = id,
+            name = name,
+            category = category,
+            address = address.ifBlank { location.placeName.value.orEmpty() },
+            lat = lat,
+            lng = lng,
+            score = 0.0,
+            stayMinutes = FoodPlaces.stayMinutes(category),
+            imageUrl = "",
+            tagline = FoodPlaces.tagline(tags),
+        )
+    }
+
+    /** null nếu không phải quán ăn uống. */
+    private fun RawPlace.toFoodPlace(): Place? {
+        val category = FoodPlaces.categoryOf(tags) ?: return null
+        return Place(
+            id = id,
+            name = name,
+            category = category,
+            address = FoodPlaces.address(tags).ifBlank { location.placeName.value.orEmpty() },
+            lat = lat,
+            lng = lng,
+            score = 0.0, // OSM không có điểm đánh giá quán
+            stayMinutes = FoodPlaces.stayMinutes(category),
+            imageUrl = WikipediaClient.imageFromTags(tags),
+            tagline = FoodPlaces.tagline(tags),
+        )
     }
 
     // ---------------- Trang chủ ----------------
@@ -221,7 +318,7 @@ class OsmPlaceRepository(
         return "[out:json][timeout:25];(${part('n', "node")}${part('w', "way")}${part('r', "relation")});out center tags;"
     }
 
-    /** Chỉ dùng khi lấy lại điểm theo id mà bộ dữ liệu không có. Lỗi thì thử máy chủ dự phòng. */
+    /** Lấy quán ăn uống, hoặc lấy lại điểm theo id mà bộ dữ liệu không có. Lỗi thì thử máy chủ dự phòng. */
     private suspend fun postOverpass(query: String): String {
         var last: Exception? = null
         for (server in OVERPASS_SERVERS) {
@@ -354,6 +451,7 @@ class OsmPlaceRepository(
         val OVERPASS_SERVERS = listOf(
             "https://overpass-api.de/api/interpreter",
             "https://overpass.kumi.systems/api/interpreter",
+            "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
         )
 
         private fun res(name: String) = "android.resource://com.travelgo.app/drawable/$name"
