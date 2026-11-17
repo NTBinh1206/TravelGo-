@@ -28,6 +28,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
@@ -59,6 +62,8 @@ fun ProfileScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val user = state.user
     val context = LocalContext.current
+    var showLanguage by remember { mutableStateOf(false) }
+    var showPolicy by remember { mutableStateOf(false) }
     LaunchedEffect(state.signedOut) {
         if (state.signedOut) onLogout()
     }
@@ -123,9 +128,9 @@ fun ProfileScreen(
 
         val groupShape = RoundedCornerShape(20.dp)
         Column(Modifier.fillMaxWidth().softShadow(groupShape).background(Color.White, groupShape).clip(groupShape)) {
-            SettingRow(Icons.Outlined.Translate, "Ngôn ngữ", trailingText = "Tiếng Việt", onClick = {})
+            SettingRow(Icons.Outlined.Translate, "Ngôn ngữ", trailingText = "Tiếng Việt", onClick = { showLanguage = true })
             HorizontalDivider(color = Border, modifier = Modifier.padding(horizontal = 16.dp))
-            SettingRow(Icons.Outlined.VerifiedUser, "Chính sách", onClick = {})
+            SettingRow(Icons.Outlined.VerifiedUser, "Chính sách", onClick = { showPolicy = true })
         }
         Spacer(Modifier.height(16.dp))
         Column(Modifier.fillMaxWidth().softShadow(groupShape).background(Color.White, groupShape).clip(groupShape)) {
@@ -138,6 +143,9 @@ fun ProfileScreen(
         }
         Spacer(Modifier.height(24.dp))
     }
+
+    if (showLanguage) LanguageDialog(onDismiss = { showLanguage = false })
+    if (showPolicy) PolicyDialog(onDismiss = { showPolicy = false })
 }
 
 @Composable

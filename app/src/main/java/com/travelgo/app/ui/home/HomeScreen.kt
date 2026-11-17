@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -26,8 +25,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -80,6 +81,7 @@ fun HomeScreen(
     val nearby = state.nearby.dataOrNull.orEmpty()
     val food = state.food.dataOrNull.orEmpty()
     var selectedFood by remember { mutableStateOf<Place?>(null) }
+    var showNotifications by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
@@ -99,16 +101,15 @@ fun HomeScreen(
                 val bellShape = RoundedCornerShape(16.dp)
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(48.dp).softShadow(bellShape).background(Color.White, bellShape),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .softShadow(bellShape)
+                        .background(Color.White, bellShape)
+                        .clip(bellShape)
+                        .clickable { showNotifications = true },
                 ) {
+                    // Chưa có thông báo nào nên không hiện chấm xanh "có tin mới".
                     Icon(Icons.Outlined.Notifications, contentDescription = "Thông báo", tint = Navy)
-                    Box(
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .offset(x = (-9).dp, y = 9.dp)
-                            .size(8.dp)
-                            .background(Blue, CircleShape),
-                    )
                 }
             }
         }
@@ -200,6 +201,18 @@ fun HomeScreen(
         distanceKm = selectedFood?.let { p -> state.me?.distanceKmTo(p.location) },
         onDismiss = { selectedFood = null },
     )
+
+    if (showNotifications) {
+        AlertDialog(
+            onDismissRequest = { showNotifications = false },
+            containerColor = Color.White,
+            title = { Text("Thông báo", color = Navy, fontWeight = FontWeight.Bold) },
+            text = { Text("Bạn chưa có thông báo nào.", color = Muted, fontSize = 15.sp) },
+            confirmButton = {
+                TextButton(onClick = { showNotifications = false }) { Text("Đóng", color = Blue) }
+            },
+        )
+    }
 }
 
 @Composable
