@@ -2,7 +2,7 @@
 
 Đồ án môn Lập trình thiết bị di động (UTH). Ứng dụng Android lấy vị trí người dùng, gợi ý điểm du lịch và quán ăn uống xung quanh, rồi sắp xếp lộ trình tối ưu qua tối đa 5 điểm.
 
-**Tải bản cài (APK):** [Releases](https://github.com/NTBinh1206/TravelGo-/releases/latest) → tải `TravelGo.apk` → mở trên điện thoại Android 7.0 trở lên, cho phép "Cài ứng dụng không rõ nguồn gốc".
+**Tải bản cài (APK):** [Releases](https://github.com/NTBinh1206/TravelGo-/releases/latest) → tải file `.apk` ở mục Assets → mở trên điện thoại Android 7.0 trở lên, cho phép "Cài ứng dụng không rõ nguồn gốc".
 
 ## Chức năng
 
