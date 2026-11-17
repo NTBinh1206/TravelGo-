@@ -19,6 +19,7 @@ facebookLogin = "18.0.0"
 playServicesLocation = "21.3.0"
 osmdroid = "6.1.20"
 coroutinesTest = "1.10.2"
+orgJson = "20240303"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -52,6 +53,8 @@ facebook-login = { group = "com.facebook.android", name = "facebook-login", vers
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 osmdroid-android = { group = "org.osmdroid", name = "osmdroid-android", version.ref = "osmdroid" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
+# org.json thật cho unit test (bản trong android.jar chỉ là vỏ rỗng khi chạy test trên máy tính)
+org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

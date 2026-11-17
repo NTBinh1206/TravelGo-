@@ -10,6 +10,8 @@ import com.travelgo.app.data.place.FirestoreClosedReports
 import com.travelgo.app.data.location.LocationProvider
 import com.travelgo.app.data.place.OsmPlaceRepository
 import com.travelgo.app.data.place.PlaceRepository
+import com.travelgo.app.data.route.OsrmRouter
+import com.travelgo.app.data.route.RoadRouter
 import okhttp3.OkHttpClient
 import org.osmdroid.config.Configuration
 import java.io.File
@@ -59,4 +61,6 @@ object AppContainer {
     val authRepository: AuthRepository by lazy { AuthRepository() }
     // Người dùng báo quán đã đóng cửa (Cloud Firestore). Muốn chạy không cần Firebase: InMemoryClosedReports().
     val closedReports: ClosedReportRepository by lazy { FirestoreClosedReports() }
+    // Quãng đường, thời gian, đường đi theo đường bộ (OSRM). Muốn tắt: NoRoadRouter, app quay về số ước lượng.
+    val roadRouter: RoadRouter by lazy { OsrmRouter() }
 }

@@ -13,6 +13,40 @@ class RouteFinderTest {
 
     private val start = GeoPoint(16.0, 108.0)
 
+    @Test fun roadTable_changesOrder_andGivesRoadMinutes() {
+        // Theo đường chim bay a gần hơn b, nhưng đường bộ tới a phải vòng xa (ví dụ qua cầu).
+        val a = p("a", 16.0, 108.1)
+        val b = p("b", 16.0, 108.2)
+        val ids = listOf(TravelTable.START, "a", "b")
+        val km = arrayOf(
+            doubleArrayOf(0.0, 30.0, 14.0),
+            doubleArrayOf(30.0, 0.0, 12.0),
+            doubleArrayOf(14.0, 12.0, 0.0),
+        )
+        val minutes = Array(3) { i -> DoubleArray(3) { j -> km[i][j] * 2 } }
+        val road = TravelTable(ids, km, minutes, byRoad = true)
+
+        val r = findBestRoute(start, listOf(a, b), RouteMode.SHORTEST, road)
+
+        assertEquals(listOf("b", "a"), r.order.map { it.id })
+        assertEquals(26.0, r.totalKm, 1e-9)
+        assertEquals(listOf(28, 24), r.legMinutes)
+        assertEquals(52, r.totalMinutes)
+        assertTrue(r.byRoad)
+        // Không có bảng đường bộ thì đi a trước như cũ, và đánh dấu là ước lượng.
+        val estimate = findBestRoute(start, listOf(a, b), RouteMode.SHORTEST)
+        assertEquals(listOf("a", "b"), estimate.order.map { it.id })
+        assertTrue(!estimate.byRoad)
+    }
+
+    @Test fun roadTable_missingAPlace_fallsBackToEstimate() {
+        val a = p("a", 16.0, 108.1)
+        val road = TravelTable(listOf(TravelTable.START), arrayOf(doubleArrayOf(0.0)), arrayOf(doubleArrayOf(0.0)), true)
+        val r = evaluateRoute(start, listOf(a), RouteMode.SHORTEST, road)
+        assertTrue(!r.byRoad)
+        assertTrue(r.totalKm > 0)
+    }
+
     @Test fun noPlaces_returnsEmptyResult() {
         val r = findBestRoute(start, emptyList(), RouteMode.SHORTEST)
         assertTrue(r.order.isEmpty())

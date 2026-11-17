@@ -69,6 +69,7 @@ import com.travelgo.app.ui.common.map
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.BlueLight
 import com.travelgo.app.ui.theme.Border
+import com.travelgo.app.ui.theme.Danger
 import com.travelgo.app.ui.theme.Green
 import com.travelgo.app.ui.theme.Muted
 import com.travelgo.app.ui.theme.Navy
@@ -130,12 +131,13 @@ fun SmartRouteScreen(viewModel: SmartRouteViewModel, onBack: () -> Unit) {
                         stops = route.order.map { it.location },
                         roundTrip = roundTrip,
                         durationText = formatDuration(route.totalMinutes),
+                        roadPath = state.roadPath,
                         modifier = Modifier.fillMaxWidth().height(184.dp),
                     )
                     Spacer(Modifier.height(14.dp))
                 }
                 item {
-                    StatsCard(route)
+                    StatsCard(route, state.distance)
                     Spacer(Modifier.height(14.dp))
                 }
                 item {
@@ -148,7 +150,8 @@ fun SmartRouteScreen(viewModel: SmartRouteViewModel, onBack: () -> Unit) {
                 }
                 item { StartCard(title = "Vị trí của bạn", subtitle = "Bắt đầu hành trình") }
                 itemsIndexed(route.order, key = { _, p -> p.id }) { index, place ->
-                    LegConnector(route.legKm.getOrNull(index) ?: 0.0)
+                    val km = route.legKm.getOrNull(index) ?: 0.0
+                    LegConnector(km, route.legMinutes.getOrNull(index) ?: legMinutes(km))
                     TimelineStepCard(
                         number = index + 1,
                         place = place,
@@ -159,7 +162,7 @@ fun SmartRouteScreen(viewModel: SmartRouteViewModel, onBack: () -> Unit) {
                 // Khứ hồi: hiện thêm chặng quay về (trước đây có tính vào tổng km nhưng không hiện trong danh sách).
                 if (roundTrip && route.order.isNotEmpty()) {
                     item {
-                        LegConnector(route.returnKm)
+                        LegConnector(route.returnKm, route.returnMinutes)
                         StartCard(title = "Về vị trí xuất phát", subtitle = "Kết thúc hành trình")
                     }
                 }
@@ -182,7 +185,7 @@ fun SmartRouteScreen(viewModel: SmartRouteViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun StatsCard(route: RouteResult) {
+private fun StatsCard(route: RouteResult, source: DistanceSource) {
     val shape = RoundedCornerShape(20.dp)
     Row(
         modifier = Modifier
@@ -203,6 +206,17 @@ private fun StatsCard(route: RouteResult) {
         color = Muted,
         fontSize = 13.sp,
         modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+    )
+    // Cho người dùng biết số km, phút là đo theo đường bộ hay chỉ ước lượng.
+    Text(
+        when (source) {
+            DistanceSource.ROAD -> "Quãng đường đo theo đường bộ (OSRM); thời gian chưa tính kẹt xe"
+            DistanceSource.LOADING -> "Đang tính quãng đường theo đường bộ…"
+            DistanceSource.ESTIMATE -> "Không kết nối được máy chủ chỉ đường: số km, phút đang là ước lượng"
+        },
+        color = if (source == DistanceSource.ESTIMATE) Danger else Muted,
+        fontSize = 12.sp,
+        modifier = Modifier.padding(start = 4.dp, top = 2.dp),
     )
 }
 
@@ -284,7 +298,7 @@ private fun StartCard(title: String, subtitle: String) {
 
 /** Đường nét đứt giữa hai điểm, kèm km và phút của chặng. */
 @Composable
-private fun LegConnector(km: Double) {
+private fun LegConnector(km: Double, minutes: Int) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 28.dp)) {
         Canvas(Modifier.width(2.dp).height(30.dp)) {
             drawLine(
@@ -296,7 +310,7 @@ private fun LegConnector(km: Double) {
             )
         }
         Spacer(Modifier.width(12.dp))
-        Text("${formatKm(km)} · ${formatDuration(legMinutes(km))}", color = Blue, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text("${formatKm(km)} · ${formatDuration(minutes)}", color = Blue, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
 
