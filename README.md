@@ -47,7 +47,7 @@ TravelGo/              Ảnh thiết kế Figma 8 màn hình
 ## Phân công
 
 - Nguyễn Thế Bình: khung ứng dụng, đăng nhập, vị trí, chuyển sang MVVM, ăn uống, báo quán đóng cửa, OSRM.
-- Nguyễn Ngọc Tuyến: dữ liệu địa điểm, Trang chủ, Khám phá, Tìm kiếm, Gần bạn.
+- Nguyễn Thị Ngọc Tuyến: dữ liệu địa điểm, Trang chủ, Khám phá, Tìm kiếm, Gần bạn.
 - Phùng Trung Tín: thuật toán và màn Lộ trình thông minh.
 
 ## Còn hạn chế
