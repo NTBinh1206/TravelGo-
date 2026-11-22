@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chính sách quyền riêng tư · TravelGo</title><link rel="stylesheet" href="style.css"></head>
+<body><main>
+<h1>Chính sách quyền riêng tư của TravelGo</h1>
+<p class="meta">Cập nhật ngày 22/11/2026 · Áp dụng cho ứng dụng Android TravelGo (com.travelgo.app)</p>
+
+<p>TravelGo là đồ án sinh viên của nhóm 3 bạn tại Trường Đại học Giao thông Vận tải TP.HCM. Ứng dụng không bán, không cho thuê và không dùng dữ liệu của bạn để quảng cáo. Trang này nói rõ ứng dụng dùng dữ liệu gì, gửi tới đâu và bạn xoá dữ liệu như thế nào.</p>
+
+<h2>1. Tài khoản</h2>
+<p>Bạn đăng nhập bằng Google, Facebook hoặc chế độ Khách (ẩn danh) qua Firebase Authentication của Google. Khi đăng nhập bằng Facebook, ứng dụng chỉ xin hai quyền cơ bản <b>public_profile</b> và <b>email</b>, dùng để hiện tên, email và ảnh đại diện ở màn Cá nhân. Ứng dụng không đọc bạn bè, bài đăng hay bất kỳ dữ liệu nào khác trên Facebook, và không bao giờ thấy mật khẩu của bạn.</p>
+
+<h2>2. Vị trí</h2>
+<p>Khi bạn cho phép, ứng dụng dùng vị trí để tìm địa điểm và quán ăn uống quanh bạn. Vị trí gần nhất chỉ lưu trên điện thoại của bạn để lần mở sau dùng ngay, không lưu lên máy chủ của nhóm. Khi cần tìm thêm địa điểm, tính quãng đường theo đường bộ hoặc lấy ảnh, toạ độ được gửi tới các dịch vụ dữ liệu mở OpenStreetMap (Overpass, Nominatim), OSRM và Wikipedia. Bạn có thể từ chối quyền vị trí và tự chọn tỉnh thành.</p>
+
+<h2>3. Báo quán đã đóng cửa</h2>
+<p>Khi bạn báo một quán đã đóng cửa hoặc xác nhận quán vẫn mở, Cloud Firestore (Google Firebase) lưu mã quán, tên quán, toạ độ và mã tài khoản (uid) của bạn. Email và tên của bạn không được lưu kèm. Chỉ người đã đăng nhập ứng dụng mới đọc được dữ liệu này.</p>
+
+<h2>4. Ghi chú OpenStreetMap</h2>
+<p>Chỉ khi bạn tick ô đồng ý, ứng dụng mới gửi một ghi chú ẩn danh lên OpenStreetMap, gồm tên quán, số người đã báo và đường dẫn tới quán. Ghi chú này công khai trên openstreetmap.org và không chứa thông tin cá nhân của bạn.</p>
+
+<h2>5. Google Maps</h2>
+<p>Các nút xem ảnh, đánh giá và dẫn đường mở ứng dụng Google Maps với tên và toạ độ của địa điểm. Từ lúc đó, việc sử dụng tuân theo chính sách của Google.</p>
+
+<h2>6. Lưu trữ và xoá dữ liệu</h2>
+<p>Dữ liệu tài khoản và báo cáo quán được lưu trên Firebase cho tới khi bạn yêu cầu xoá. Cách xoá xem tại <a href="delete-data.html">Hướng dẫn xoá dữ liệu</a>.</p>
+
+<h2>7. Trẻ em</h2>
+<p>Ứng dụng không dành riêng cho trẻ em dưới 13 tuổi và không cố ý thu thập dữ liệu của trẻ em.</p>
+
+<h2>8. Liên hệ</h2>
+<p>Mọi câu hỏi về quyền riêng tư, vui lòng gửi qua mục <a href="https://github.com/NTBinh1206/TravelGo-/issues">Issues của dự án trên GitHub</a>.</p>
+
+<div class="en" lang="en">
+<h2>Summary in English</h2>
+<p>TravelGo is a student project. Sign-in uses Firebase Authentication (Google, Facebook or anonymous guest). Facebook Login requests only <b>public_profile</b> and <b>email</b>, used to show your name, email and photo in the app. Location stays on your device and is sent only as coordinates to OpenStreetMap, OSRM and Wikipedia to find nearby places and road distances. Closed-shop reports store the place and your account uid in Cloud Firestore. We do not sell or share your data for advertising. To delete your data, see the <a href="delete-data.html">data deletion instructions</a>.</p>
+</div>
+</main></body></html>
