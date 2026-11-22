@@ -2,6 +2,7 @@ package com.travelgo.app.ui.auth
 
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -84,18 +85,26 @@ class LoginViewModel(
         viewModelScope.launch { finish(auth.signInWithFacebook(token)) }
     }
 
+    // App Facebook của nhóm chưa được Meta cho phát hành công khai: người không phải Tester sẽ thấy
+    // trang "App not active" rồi quay về đây (huỷ hoặc lỗi). Nói rõ lý do và chỉ sang cách khác.
     fun onFacebookCancel() {
-        _uiState.update { it.copy(loading = false) }
+        _uiState.update { it.copy(loading = false, error = FACEBOOK_TEST_MODE) }
     }
 
     fun onFacebookError(message: String?) {
-        _uiState.update {
-            it.copy(loading = false, error = "Đăng nhập Facebook chưa thành công.\n${message.orEmpty()}".trim())
-        }
+        Log.w(TAG, "Facebook login error: $message")
+        _uiState.update { it.copy(loading = false, error = FACEBOOK_TEST_MODE) }
     }
 
     fun signInAsGuest() {
         if (!begin()) return
         viewModelScope.launch { finish(auth.signInAsGuest()) }
+    }
+
+    companion object {
+        private const val TAG = "LoginViewModel"
+        const val FACEBOOK_TEST_MODE =
+            "Chưa đăng nhập được bằng Facebook. Đăng nhập Facebook của TravelGo đang ở chế độ thử nghiệm, " +
+                "chỉ tài khoản được nhóm mời mới dùng được. Bạn hãy dùng Google hoặc \"Dùng thử không cần tài khoản\"."
     }
 }
