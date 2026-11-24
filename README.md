@@ -10,7 +10,8 @@
 - Lấy vị trí GPS, đổi ra tên tỉnh; chọn tay 1 trong 34 tỉnh thành nếu từ chối quyền hoặc GPS tắt.
 - Trang chủ, Khám phá, Gần bạn, Tìm kiếm: 2.937 điểm du lịch toàn Việt Nam (OpenStreetMap + Wikipedia), lọc theo loại, tìm không dấu.
 - Ăn uống quanh bạn: 13.652 quán ăn, quán nước trong bán kính 2 km; chạm quán để mở Google Maps xem ảnh, đánh giá.
-- Báo quán đã đóng cửa (Cloud Firestore): ẩn với người báo; đủ 2 tài khoản Google/Facebook báo thì quán được gắn nhãn "Có thể đã đóng cửa"; nút "Quán vẫn mở cửa"; tuỳ chọn gửi ghi chú lên OpenStreetMap.
+- Báo quán đã đóng cửa (Cloud Firestore): ẩn với người báo; đủ tài khoản Google/Facebook báo (từ 2, quán nhiều người xem cần tới 5) thì quán được gắn nhãn "Có thể đã đóng cửa"; nút "Quán vẫn mở cửa"; tuỳ chọn gửi ghi chú lên OpenStreetMap.
+- Chống báo sai: phải đứng cách quán dưới 200 m (GPS thật, không nhận vị trí giả), tài khoản dùng app từ 1 ngày, tối đa 5 lần báo hoặc xác nhận trong 24 giờ. Tuổi tài khoản và số lượt do luật Firestore kiểm tra trên máy chủ.
 - Lộ trình thông minh: tối đa 5 điểm, 3 chế độ (ngắn nhất, khứ hồi, ưu tiên điểm hay), quãng đường và thời gian theo đường bộ (OSRM), bản đồ osmdroid, mở Google Maps để dẫn đường.
 
 ## Công nghệ

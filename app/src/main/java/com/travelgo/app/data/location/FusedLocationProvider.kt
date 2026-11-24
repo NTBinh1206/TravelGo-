@@ -6,7 +6,9 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Address
 import android.location.Geocoder
+import android.location.Location
 import android.os.Build
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
@@ -79,6 +81,23 @@ class FusedLocationProvider(context: Context) : LocationProvider {
         }
     }
 
+    @SuppressLint("MissingPermission") // đã kiểm tra bằng hasPermission()
+    override suspend fun freshFix(): Result<GpsFix> {
+        if (!hasPermission()) return Result.failure(SecurityException("Chưa được cấp quyền vị trí"))
+        return runCatching {
+            val cts = CancellationTokenSource()
+            val fresh = withTimeoutOrNull(TIMEOUT_MS) {
+                client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token).awaitOrNull()
+            }
+            if (fresh == null) cts.cancel()
+            // Vị trí máy còn nhớ chỉ dùng khi mới có trong 2 phút, tránh báo quán từ chỗ đã đi khỏi.
+            val location = fresh
+                ?: client.lastLocation.awaitOrNull()?.takeIf { it.ageMs() <= FIX_MAX_AGE_MS }
+                ?: throw LocationUnavailableException()
+            GpsFix(GeoPoint(location.latitude, location.longitude), mock = location.isMockLocation())
+        }.onFailure { Log.w(TAG, "Không đọc được GPS để kiểm tra khoảng cách", it) }
+    }
+
     /** Toạ độ → tên ngắn, ví dụ "Đà Nẵng". Không có mạng thì trả về null. */
     private suspend fun reverseGeocode(point: GeoPoint): String? {
         if (!Geocoder.isPresent()) return null
@@ -119,6 +138,7 @@ class FusedLocationProvider(context: Context) : LocationProvider {
     companion object {
         private const val TAG = "TravelGoLocation"
         private const val TIMEOUT_MS = 15_000L
+        private const val FIX_MAX_AGE_MS = 2 * 60_000L
         private const val KEY_LAT = "lat"
         private const val KEY_LNG = "lng"
         private const val KEY_NAME = "name"
@@ -131,6 +151,13 @@ class FusedLocationProvider(context: Context) : LocationProvider {
         }
     }
 }
+
+/** Android đánh dấu vị trí do app giả lập vị trí tạo ra. */
+private fun Location.isMockLocation(): Boolean =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) isMock else @Suppress("DEPRECATION") isFromMockProvider
+
+/** Vị trí này có từ bao lâu (mili giây). */
+private fun Location.ageMs(): Long = (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos) / 1_000_000
 
 /** Chờ Task của Google xong, lỗi thì trả về null. */
 private suspend fun <T> Task<T>.awaitOrNull(): T? = suspendCancellableCoroutine { cont ->
