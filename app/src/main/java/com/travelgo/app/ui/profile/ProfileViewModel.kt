@@ -27,7 +27,7 @@ class ProfileViewModel(
     private val _uiState = MutableStateFlow(ProfileUiState(user = auth.currentUser))
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
-    /** Đăng xuất ở cả Firebase, Facebook và Google. [context] chỉ dùng trong lúc gọi, không giữ lại. */
+    /** Đăng xuất ở cả Firebase và Google. [context] chỉ dùng trong lúc gọi, không giữ lại. */
     fun signOut(context: Context) {
         if (_uiState.value.signingOut) return
         _uiState.update { it.copy(signingOut = true) }

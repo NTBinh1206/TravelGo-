@@ -52,7 +52,7 @@ fun LanguageDialog(onDismiss: () -> Unit) {
 /** Nội dung chính sách: ứng dụng dùng dữ liệu gì, gửi đi đâu. Mỗi mục là (tiêu đề, nội dung). */
 val POLICY_SECTIONS = listOf(
     "Tài khoản" to
-        "Đăng nhập qua Firebase Authentication (Google, Facebook hoặc Khách ẩn danh). Ứng dụng chỉ đọc tên, email và ảnh đại diện để hiện ở màn Cá nhân.",
+        "Đăng nhập qua Firebase Authentication (Google hoặc Khách ẩn danh). Ứng dụng chỉ đọc tên, email và ảnh đại diện để hiện ở màn Cá nhân.",
     "Vị trí" to
         "Vị trí dùng để tìm địa điểm và quán quanh bạn. Vị trí gần nhất chỉ lưu trên máy để mở lại dùng ngay, không lưu lên máy chủ của nhóm. Khi tìm thêm địa điểm, tính quãng đường hoặc lấy ảnh, toạ độ được gửi tới OpenStreetMap (Overpass, Nominatim), OSRM và Wikipedia.",
     "Báo quán đã đóng cửa" to

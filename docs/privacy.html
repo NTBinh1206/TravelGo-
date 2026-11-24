@@ -8,7 +8,8 @@
 <p>TravelGo là đồ án sinh viên của nhóm 3 bạn tại Trường Đại học Giao thông Vận tải TP.HCM. Ứng dụng không bán, không cho thuê và không dùng dữ liệu của bạn để quảng cáo. Trang này nói rõ ứng dụng dùng dữ liệu gì, gửi tới đâu và bạn xoá dữ liệu như thế nào.</p>
 
 <h2>1. Tài khoản</h2>
-<p>Bạn đăng nhập bằng Google, Facebook hoặc chế độ Khách (ẩn danh) qua Firebase Authentication của Google. Khi đăng nhập bằng Facebook, ứng dụng chỉ xin hai quyền cơ bản <b>public_profile</b> và <b>email</b>, dùng để hiện tên, email và ảnh đại diện ở màn Cá nhân. Ứng dụng không đọc bạn bè, bài đăng hay bất kỳ dữ liệu nào khác trên Facebook, và không bao giờ thấy mật khẩu của bạn.</p>
+<p>Bạn đăng nhập bằng Google hoặc chế độ Khách (ẩn danh) qua Firebase Authentication của Google. Ứng dụng chỉ đọc tên, email và ảnh đại diện để hiện ở màn Cá nhân, và không bao giờ thấy mật khẩu của bạn.</p>
+<p>Bản thử nghiệm trước đây có đăng nhập bằng Facebook (chỉ xin quyền <b>public_profile</b> và <b>email</b>). Đăng nhập Facebook đã được bỏ; tài khoản đã tạo bằng Facebook vẫn xoá được theo <a href="delete-data.html">hướng dẫn xoá dữ liệu</a>.</p>
 
 <h2>2. Vị trí</h2>
 <p>Khi bạn cho phép, ứng dụng dùng vị trí để tìm địa điểm và quán ăn uống quanh bạn. Vị trí gần nhất chỉ lưu trên điện thoại của bạn để lần mở sau dùng ngay, không lưu lên máy chủ của nhóm. Khi cần tìm thêm địa điểm, tính quãng đường theo đường bộ hoặc lấy ảnh, toạ độ được gửi tới các dịch vụ dữ liệu mở OpenStreetMap (Overpass, Nominatim), OSRM và Wikipedia. Bạn có thể từ chối quyền vị trí và tự chọn tỉnh thành.</p>
@@ -34,6 +35,6 @@
 
 <div class="en" lang="en">
 <h2>Summary in English</h2>
-<p>TravelGo is a student project. Sign-in uses Firebase Authentication (Google, Facebook or anonymous guest). Facebook Login requests only <b>public_profile</b> and <b>email</b>, used to show your name, email and photo in the app. Location stays on your device and is sent only as coordinates to OpenStreetMap, OSRM and Wikipedia to find nearby places and road distances. Closed-shop reports store the place and your account uid in Cloud Firestore, plus, to prevent abuse, when you started using the app, how many reports you made in the last 24 hours, and your uid on reported places you viewed. Before a report, the app checks on the phone that you are within 200 m of the place; that GPS position is not uploaded. We do not sell or share your data for advertising. To delete your data, see the <a href="delete-data.html">data deletion instructions</a>.</p>
+<p>TravelGo is a student project. Sign-in uses Firebase Authentication (Google or anonymous guest); the app reads only your name, email and photo to show them in the app. An earlier test build also offered Facebook Login (<b>public_profile</b> and <b>email</b> only); it has been removed. Location stays on your device and is sent only as coordinates to OpenStreetMap, OSRM and Wikipedia to find nearby places and road distances. Closed-shop reports store the place and your account uid in Cloud Firestore, plus, to prevent abuse, when you started using the app, how many reports you made in the last 24 hours, and your uid on reported places you viewed. Before a report, the app checks on the phone that you are within 200 m of the place; that GPS position is not uploaded. We do not sell or share your data for advertising. To delete your data, see the <a href="delete-data.html">data deletion instructions</a>.</p>
 </div>
 </main></body></html>

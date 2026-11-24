@@ -144,7 +144,7 @@ class FoodSheetViewModel(
         fun noteLine(share: Boolean, flaggedNow: Boolean, note: Result<NoteOutcome>?): String = when {
             !share -> ""
             !flaggedNow ->
-                " Chưa gửi ghi chú lên OpenStreetMap vì chưa đủ tài khoản Google/Facebook cùng báo."
+                " Chưa gửi ghi chú lên OpenStreetMap vì chưa đủ tài khoản Google cùng báo."
             note == null -> ""
             note.isFailure -> " Chưa gửi được ghi chú lên OpenStreetMap."
             note.getOrNull() is NoteOutcome.AlreadyOpen -> " OpenStreetMap đã có ghi chú về quán này, không gửi thêm."
