@@ -2,11 +2,9 @@ package com.travelgo.app.ui.auth
 
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.facebook.AccessToken
 import com.travelgo.app.data.auth.AppUser
 import com.travelgo.app.data.auth.AuthRepository
 import com.travelgo.app.di.AppContainer
@@ -27,7 +25,7 @@ data class LoginUiState(
 
 /**
  * ViewModel màn 01 · Đăng nhập (Người 1).
- * Giữ trạng thái đang tải / lỗi và gọi AuthRepository. Các hộp thoại của Google, Facebook
+ * Giữ trạng thái đang tải / lỗi và gọi AuthRepository. Bảng chọn tài khoản Google kiểu cũ
  * bắt buộc phải mở từ Activity nên vẫn nằm ở màn hình, kết quả được báo về đây.
  */
 class LoginViewModel(
@@ -78,33 +76,8 @@ class LoginViewModel(
         viewModelScope.launch { finish(auth.finishLegacyGoogleSignIn(data)) }
     }
 
-    /** Gọi trước khi mở màn đăng nhập Facebook; false nghĩa là đang bận, không mở. */
-    fun startFacebook(): Boolean = begin()
-
-    fun onFacebookSuccess(token: AccessToken) {
-        viewModelScope.launch { finish(auth.signInWithFacebook(token)) }
-    }
-
-    // App Facebook của nhóm chưa được Meta cho phát hành công khai: người không phải Tester sẽ thấy
-    // trang "App not active" rồi quay về đây (huỷ hoặc lỗi). Nói rõ lý do và chỉ sang cách khác.
-    fun onFacebookCancel() {
-        _uiState.update { it.copy(loading = false, error = FACEBOOK_TEST_MODE) }
-    }
-
-    fun onFacebookError(message: String?) {
-        Log.w(TAG, "Facebook login error: $message")
-        _uiState.update { it.copy(loading = false, error = FACEBOOK_TEST_MODE) }
-    }
-
     fun signInAsGuest() {
         if (!begin()) return
         viewModelScope.launch { finish(auth.signInAsGuest()) }
-    }
-
-    companion object {
-        private const val TAG = "LoginViewModel"
-        const val FACEBOOK_TEST_MODE =
-            "Chưa đăng nhập được bằng Facebook. Đăng nhập Facebook của TravelGo đang ở chế độ thử nghiệm, " +
-                "chỉ tài khoản được nhóm mời mới dùng được. Bạn hãy dùng Google hoặc \"Dùng thử không cần tài khoản\"."
     }
 }

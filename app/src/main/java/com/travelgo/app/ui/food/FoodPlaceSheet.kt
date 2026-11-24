@@ -148,13 +148,13 @@ fun FoodPlaceSheet(
                         .padding(start = 14.dp, end = 4.dp, top = 12.dp),
                 ) {
                     Text(
-                        "Bạn chắc quán này đã đóng cửa? Quán sẽ ẩn với bạn ngay; khi đủ tài khoản Google/Facebook " +
+                        "Bạn chắc quán này đã đóng cửa? Quán sẽ ẩn với bạn ngay; khi đủ tài khoản Google " +
                             "báo (ít nhất ${ReportGuards.MIN_REPORTS}, quán nhiều người xem cần nhiều hơn), quán được " +
                             "gắn nhãn \"Có thể đã đóng cửa\" với mọi người.",
                         color = Navy, fontSize = 14.sp, modifier = Modifier.padding(end = 10.dp),
                     )
                     Text(
-                        "Để chống báo sai, khi dùng Google/Facebook bạn phải đứng cách quán dưới ${ReportGuards.NEAR_METERS.toInt()} m, " +
+                        "Để chống báo sai, khi dùng tài khoản Google bạn phải đứng cách quán dưới ${ReportGuards.NEAR_METERS.toInt()} m, " +
                             "tài khoản đã dùng TravelGo từ 1 ngày, mỗi ngày báo tối đa ${ReportGuards.DAILY_LIMIT} quán.",
                         color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, end = 10.dp),
                     )
@@ -172,7 +172,7 @@ fun FoodPlaceSheet(
                             )
                             Text(
                                 "Gửi kèm ghi chú công khai lên OpenStreetMap khi quán đủ tài khoản " +
-                                    "Google/Facebook báo, để người vẽ bản đồ kiểm tra lại",
+                                    "Google báo, để người vẽ bản đồ kiểm tra lại",
                                 color = Navy, fontSize = 13.sp,
                             )
                         }

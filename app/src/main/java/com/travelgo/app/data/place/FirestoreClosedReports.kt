@@ -29,7 +29,7 @@ import kotlin.coroutines.resumeWithException
  *
  * Mỗi quán bị báo là một tài liệu `closed_reports/{id quán}`:
  *   name, lat, lng      tên và toạ độ quán (để xem lại trên Firebase Console)
- *   reporters           uid TÀI KHOẢN THẬT (Google, Facebook) đã báo đóng cửa
+ *   reporters           uid TÀI KHOẢN THẬT (Google) đã báo đóng cửa
  *   guests              uid tài khoản Khách (ẩn danh) đã báo; không tính vào ngưỡng gắn nhãn
  *   openers             uid đã bấm "Quán vẫn mở cửa"
  *   viewers             uid tài khoản thật đã mở xem quán sau khi quán bị báo (quán đông người xem cần nhiều người báo hơn)

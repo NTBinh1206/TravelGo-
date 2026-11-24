@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Số người đã báo / xác nhận cho một quán.
- * [reporters] uid tài khoản Google, Facebook đã báo đóng cửa; [guests] uid tài khoản Khách (ẩn danh) đã báo;
+ * [reporters] uid tài khoản Google đã báo đóng cửa; [guests] uid tài khoản Khách (ẩn danh) đã báo;
  * [openers] uid đã bấm "Quán vẫn mở cửa"; [viewers] uid tài khoản thật đã mở xem quán sau khi quán bị báo
  * (quán càng nhiều người xem thì càng cần nhiều người báo, xem [ReportGuards.requiredReports]).
  */
@@ -23,7 +23,7 @@ data class ReportTally(
  *
  * Để một người không thể tự phá (chế độ Khách tạo tài khoản mới mỗi lần đăng nhập):
  * - Ai báo thì quán ẩn ngay, nhưng CHỈ với chính họ.
- * - Đủ số tài khoản thật (Google, Facebook) báo thì quán không biến mất mà được gắn nhãn
+ * - Đủ số tài khoản thật (Google) báo thì quán không biến mất mà được gắn nhãn
  *   "Có thể đã đóng cửa" với mọi người: mờ đi, xếp cuối danh sách. Tài khoản Khách không được tính.
  *   Số người cần báo là 2, quán càng nhiều người xem thì cần càng nhiều ([ReportGuards.requiredReports]).
  * - Chống một người dùng nhiều tài khoản để phá ([ReportGuards]): tài khoản phải dùng app từ 1 ngày,
@@ -55,7 +55,7 @@ interface ClosedReportRepository {
 
     companion object {
         /** Câu báo khi tài khoản Khách bấm "Quán vẫn mở cửa". */
-        const val GUEST_CANNOT_CONFIRM = "Đăng nhập bằng Google hoặc Facebook để xác nhận quán vẫn mở cửa."
+        const val GUEST_CANNOT_CONFIRM = "Đăng nhập bằng Google để xác nhận quán vẫn mở cửa."
 
         /** Quán ẩn với [myUid]: chính họ đã báo (bằng tài khoản thật hay Khách). */
         fun hiddenPlaceIds(all: Map<String, ReportTally>, myUid: String?): Set<String> {

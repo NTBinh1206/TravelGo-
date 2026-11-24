@@ -26,10 +26,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -50,20 +48,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.travelgo.app.R
 import com.travelgo.app.components.softShadow
-import com.facebook.CallbackManager
-import com.facebook.FacebookCallback
-import com.facebook.FacebookException
-import com.facebook.login.LoginManager
-import com.facebook.login.LoginResult
 import com.travelgo.app.ui.theme.Blue
-import com.travelgo.app.ui.theme.FacebookBlue
 import com.travelgo.app.ui.theme.Navy
 
 private val textShadow = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.35f), Offset(0f, 3f), 10f))
 
 /**
  * 01 · Đăng nhập (Người 1).
- * Google, Facebook và Khách: đăng nhập qua Firebase Auth.
+ * Google và Khách: đăng nhập qua Firebase Auth.
  */
 @Composable
 fun LoginScreen(
@@ -90,26 +82,6 @@ fun LoginScreen(
             viewModel.onLegacyGoogleLaunched()
             legacyGoogleLauncher.launch(viewModel.legacyGoogleIntent(context))
         }
-    }
-
-    // Đăng nhập Facebook: SDK mở màn đăng nhập, kết quả trả về qua callbackManager rồi báo cho ViewModel.
-    val callbackManager = remember { CallbackManager.Factory.create() }
-    val facebookLauncher = rememberLauncherForActivityResult(
-        LoginManager.getInstance().createLogInActivityResultContract(callbackManager, null),
-    ) { /* kết quả xử lý trong FacebookCallback bên dưới */ }
-
-    DisposableEffect(Unit) {
-        val loginManager = LoginManager.getInstance()
-        loginManager.registerCallback(callbackManager, object : FacebookCallback<LoginResult> {
-            override fun onSuccess(result: LoginResult) = viewModel.onFacebookSuccess(result.accessToken)
-            override fun onCancel() = viewModel.onFacebookCancel()
-            override fun onError(error: FacebookException) = viewModel.onFacebookError(error.message)
-        })
-        onDispose { loginManager.unregisterCallback(callbackManager) }
-    }
-
-    fun signInWithFacebook() {
-        if (viewModel.startFacebook()) facebookLauncher.launch(listOf("public_profile", "email"))
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -177,14 +149,6 @@ fun LoginScreen(
                 container = Color.White,
                 content = Navy,
                 onClick = { viewModel.signInWithGoogle(context) },
-            )
-            SocialButton(
-                text = "Tiếp tục với Facebook",
-                icon = painterResource(R.drawable.ic_facebook),
-                iconTint = Color.White,
-                container = FacebookBlue,
-                content = Color.White,
-                onClick = { signInWithFacebook() },
             )
             Text(
                 "Dùng thử không cần tài khoản",

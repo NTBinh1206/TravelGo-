@@ -47,7 +47,7 @@ service cloud.firestore {
     // ---------------------------------------------------------------------------------------------
     // Báo "quán đã đóng cửa": closed_reports/{id quán}
     //   name, lat, lng      tên và toạ độ quán
-    //   reporters           uid TÀI KHOẢN THẬT (Google, Facebook) đã báo đóng cửa
+    //   reporters           uid TÀI KHOẢN THẬT (Google) đã báo đóng cửa
     //   guests              uid tài khoản Khách (ẩn danh) đã báo; không tính vào ngưỡng gắn nhãn
     //   openers             uid đã bấm "Quán vẫn mở cửa"
     //   viewers             uid tài khoản thật đã mở xem quán sau khi quán bị báo

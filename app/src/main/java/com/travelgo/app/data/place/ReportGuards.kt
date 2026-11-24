@@ -7,7 +7,7 @@ package com.travelgo.app.data.place
 object ReportGuards {
     private const val HOUR_MS = 60 * 60 * 1000L
 
-    /** Tài khoản Google/Facebook phải dùng TravelGo ít nhất ngần này mới được báo hoặc xác nhận quán. */
+    /** Tài khoản Google phải dùng TravelGo ít nhất ngần này mới được báo hoặc xác nhận quán. */
     const val MIN_ACCOUNT_AGE_MS = 24 * HOUR_MS
 
     /** Mỗi tài khoản báo + xác nhận tối đa [DAILY_LIMIT] lần trong [WINDOW_MS], tính từ lần đầu trong khung. */

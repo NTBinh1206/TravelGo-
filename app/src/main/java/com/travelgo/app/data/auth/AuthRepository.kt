@@ -16,9 +16,6 @@ import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.tasks.Task
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.facebook.AccessToken
-import com.facebook.login.LoginManager
-import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseUser
@@ -34,7 +31,7 @@ data class AppUser(
     val name: String,
     val email: String,
     val photoUrl: String?,
-    val provider: String, // "Google", "Facebook", "Khách"
+    val provider: String, // "Google", "Khách" (tài khoản Facebook tạo từ bản cũ vẫn hiện "Facebook")
 )
 
 /** Người dùng tự bấm huỷ khi chọn tài khoản: không cần báo lỗi. */
@@ -44,7 +41,6 @@ class SignInCancelledException : Exception()
  * Đăng nhập bằng Firebase Auth (Người 1).
  *  - Google: Credential Manager lấy ID token, rồi đổi sang tài khoản Firebase
  *  - Khách: đăng nhập ẩn danh
- *  - Facebook: Facebook Login SDK lấy access token, rồi đổi sang tài khoản Firebase
  */
 class AuthRepository(private val auth: FirebaseAuth = FirebaseAuth.getInstance()) {
 
@@ -108,19 +104,6 @@ class AuthRepository(private val auth: FirebaseAuth = FirebaseAuth.getInstance()
         user.toAppUser()
     }
 
-    /** Đổi access token của Facebook thành tài khoản Firebase. */
-    suspend fun signInWithFacebook(token: AccessToken): Result<AppUser> = runCatching {
-        val credential = FacebookAuthProvider.getCredential(token.token)
-        val result = try {
-            auth.signInWithCredential(credential).awaitResult()
-        } catch (e: Exception) {
-            LoginManager.getInstance().logOut() // tránh giữ phiên Facebook khi Firebase từ chối
-            throw e
-        }
-        val user = result.user ?: error("Không lấy được tài khoản")
-        user.toAppUser()
-    }
-
     suspend fun signInAsGuest(): Result<AppUser> = runCatching {
         val user = auth.signInAnonymously().awaitResult().user ?: error("Không tạo được tài khoản khách")
         user.toAppUser()
@@ -128,7 +111,6 @@ class AuthRepository(private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
     suspend fun signOut(context: Context) {
         auth.signOut()
-        runCatching { LoginManager.getInstance().logOut() }
         runCatching { CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest()) }
     }
 

@@ -6,17 +6,17 @@
 
 ## Chức năng
 
-- Đăng nhập bằng Google, Facebook hoặc Khách (ẩn danh); xem thông tin ở màn Cá nhân.
+- Đăng nhập bằng Google hoặc Khách (ẩn danh); xem thông tin ở màn Cá nhân.
 - Lấy vị trí GPS, đổi ra tên tỉnh; chọn tay 1 trong 34 tỉnh thành nếu từ chối quyền hoặc GPS tắt.
 - Trang chủ, Khám phá, Gần bạn, Tìm kiếm: 2.937 điểm du lịch toàn Việt Nam (OpenStreetMap + Wikipedia), lọc theo loại, tìm không dấu.
 - Ăn uống quanh bạn: 13.652 quán ăn, quán nước trong bán kính 2 km; chạm quán để mở Google Maps xem ảnh, đánh giá.
-- Báo quán đã đóng cửa (Cloud Firestore): ẩn với người báo; đủ tài khoản Google/Facebook báo (từ 2, quán nhiều người xem cần tới 5) thì quán được gắn nhãn "Có thể đã đóng cửa"; nút "Quán vẫn mở cửa"; tuỳ chọn gửi ghi chú lên OpenStreetMap.
+- Báo quán đã đóng cửa (Cloud Firestore): ẩn với người báo; đủ tài khoản Google báo (từ 2, quán nhiều người xem cần tới 5) thì quán được gắn nhãn "Có thể đã đóng cửa"; nút "Quán vẫn mở cửa"; tuỳ chọn gửi ghi chú lên OpenStreetMap.
 - Chống báo sai: phải đứng cách quán dưới 200 m (GPS thật, không nhận vị trí giả), tài khoản dùng app từ 1 ngày, tối đa 5 lần báo hoặc xác nhận trong 24 giờ. Tuổi tài khoản và số lượt do luật Firestore kiểm tra trên máy chủ.
 - Lộ trình thông minh: tối đa 5 điểm, 3 chế độ (ngắn nhất, khứ hồi, ưu tiên điểm hay), quãng đường và thời gian theo đường bộ (OSRM), bản đồ osmdroid, mở Google Maps để dẫn đường.
 
 ## Công nghệ
 
-Kotlin, Jetpack Compose, Material 3, Navigation Compose, MVVM (ViewModel + StateFlow), Firebase Authentication, Cloud Firestore, Credential Manager, Facebook Login, Fused Location Provider, OkHttp, Coil, osmdroid, OSRM, OpenStreetMap, Wikipedia.
+Kotlin, Jetpack Compose, Material 3, Navigation Compose, MVVM (ViewModel + StateFlow), Firebase Authentication, Cloud Firestore, Credential Manager, Fused Location Provider, OkHttp, Coil, osmdroid, OSRM, OpenStreetMap, Wikipedia.
 
 ## Chạy từ mã nguồn
 
@@ -35,7 +35,7 @@ app/src/main/java/com/travelgo/app/
 ├── ui/theme/          Màu, font theo Figma
 ├── components/        PlaceCard, BottomTabBar, nút dùng chung
 ├── di/AppContainer.kt Tạo Repository dùng chung cho ViewModel
-├── data/auth/         AuthRepository (Google, Facebook, Khách)
+├── data/auth/         AuthRepository (Google, Khách)
 ├── data/location/     LocationProvider (GPS, tên tỉnh)
 ├── data/place/        Dữ liệu địa điểm, quán ăn, báo quán đóng cửa, ghi chú OSM
 ├── data/route/        OSRM (quãng đường đường bộ)
@@ -54,7 +54,7 @@ TravelGo/              Ảnh thiết kế Figma 8 màn hình
 ## Còn hạn chế
 
 - Mới chạy thử trên máy ảo; chưa có màn chi tiết địa điểm, chưa lưu yêu thích.
-- Facebook đang ở chế độ phát triển: chỉ tài khoản được thêm làm người thử nghiệm mới đăng nhập được.
+- Đã bỏ đăng nhập Facebook: muốn mở cho mọi người, Meta yêu cầu xác minh doanh nghiệp bằng giấy tờ pháp lý.
 - Một số mạng ở Việt Nam chặn openstreetmap.org, khi đó không gửi được ghi chú OSM (báo cáo trong Firestore vẫn được lưu).
 
 ## Quy ước
