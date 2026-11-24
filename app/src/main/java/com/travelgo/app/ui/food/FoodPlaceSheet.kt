@@ -43,7 +43,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.travelgo.app.components.PlaceImage
 import com.travelgo.app.components.PrimaryButton
 import com.travelgo.app.data.model.formatKm
-import com.travelgo.app.data.place.ClosedReportRepository
+import com.travelgo.app.data.place.ReportGuards
 import com.travelgo.app.data.place.OsmNotes
 import com.travelgo.app.data.place.Place
 import com.travelgo.app.ui.common.openPlaceInGoogleMaps
@@ -80,6 +80,8 @@ fun FoodPlaceSheet(
 
     if (place == null) return
     var confirming by remember(place.id) { mutableStateOf(false) }
+    // Quán đang bị báo mà nhiều người mở xem thì cần nhiều người báo hơn mới gắn nhãn.
+    LaunchedEffect(place.id) { viewModel.onShown(place) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -146,10 +148,15 @@ fun FoodPlaceSheet(
                         .padding(start = 14.dp, end = 4.dp, top = 12.dp),
                 ) {
                     Text(
-                        "Bạn chắc quán này đã đóng cửa? Quán sẽ ẩn với bạn ngay; khi có từ " +
-                            "${ClosedReportRepository.FLAG_FOR_EVERYONE} tài khoản Google/Facebook báo, quán được " +
+                        "Bạn chắc quán này đã đóng cửa? Quán sẽ ẩn với bạn ngay; khi đủ tài khoản Google/Facebook " +
+                            "báo (ít nhất ${ReportGuards.MIN_REPORTS}, quán nhiều người xem cần nhiều hơn), quán được " +
                             "gắn nhãn \"Có thể đã đóng cửa\" với mọi người.",
                         color = Navy, fontSize = 14.sp, modifier = Modifier.padding(end = 10.dp),
+                    )
+                    Text(
+                        "Để chống báo sai, khi dùng Google/Facebook bạn phải đứng cách quán dưới ${ReportGuards.NEAR_METERS.toInt()} m, " +
+                            "tài khoản đã dùng TravelGo từ 1 ngày, mỗi ngày báo tối đa ${ReportGuards.DAILY_LIMIT} quán.",
+                        color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, end = 10.dp),
                     )
                     if (OsmNotes.canReport(place)) {
                         // Ghi chú trên OSM là công khai nên người dùng phải tự tick, mặc định không gửi.
@@ -164,9 +171,8 @@ fun FoodPlaceSheet(
                                 colors = CheckboxDefaults.colors(checkedColor = Danger),
                             )
                             Text(
-                                "Gửi kèm ghi chú công khai lên OpenStreetMap khi quán có từ " +
-                                    "${ClosedReportRepository.FLAG_FOR_EVERYONE} tài khoản Google/Facebook báo, " +
-                                    "để người vẽ bản đồ kiểm tra lại",
+                                "Gửi kèm ghi chú công khai lên OpenStreetMap khi quán đủ tài khoản " +
+                                    "Google/Facebook báo, để người vẽ bản đồ kiểm tra lại",
                                 color = Navy, fontSize = 13.sp,
                             )
                         }

@@ -15,6 +15,7 @@
 
 <h2>3. Báo quán đã đóng cửa</h2>
 <p>Khi bạn báo một quán đã đóng cửa hoặc xác nhận quán vẫn mở, Cloud Firestore (Google Firebase) lưu mã quán, tên quán, toạ độ và mã tài khoản (uid) của bạn. Email và tên của bạn không được lưu kèm. Chỉ người đã đăng nhập ứng dụng mới đọc được dữ liệu này.</p>
+<p>Để chống báo sai, ứng dụng lưu thêm cho mỗi tài khoản: thời điểm bắt đầu dùng TravelGo và số lần báo hoặc xác nhận trong 24 giờ gần nhất (chỉ chính bạn đọc được). Khi bạn mở xem một quán đang bị báo, mã tài khoản của bạn được ghi vào danh sách người đã xem quán đó, để quán nhiều người xem cần nhiều người báo hơn. Trước khi báo hoặc xác nhận, ứng dụng đọc GPS để kiểm tra bạn đang ở gần quán (dưới 200 m); toạ độ này chỉ dùng trên điện thoại, không gửi lên máy chủ.</p>
 
 <h2>4. Ghi chú OpenStreetMap</h2>
 <p>Chỉ khi bạn tick ô đồng ý, ứng dụng mới gửi một ghi chú ẩn danh lên OpenStreetMap, gồm tên quán, số người đã báo và đường dẫn tới quán. Ghi chú này công khai trên openstreetmap.org và không chứa thông tin cá nhân của bạn.</p>
@@ -33,6 +34,6 @@
 
 <div class="en" lang="en">
 <h2>Summary in English</h2>
-<p>TravelGo is a student project. Sign-in uses Firebase Authentication (Google, Facebook or anonymous guest). Facebook Login requests only <b>public_profile</b> and <b>email</b>, used to show your name, email and photo in the app. Location stays on your device and is sent only as coordinates to OpenStreetMap, OSRM and Wikipedia to find nearby places and road distances. Closed-shop reports store the place and your account uid in Cloud Firestore. We do not sell or share your data for advertising. To delete your data, see the <a href="delete-data.html">data deletion instructions</a>.</p>
+<p>TravelGo is a student project. Sign-in uses Firebase Authentication (Google, Facebook or anonymous guest). Facebook Login requests only <b>public_profile</b> and <b>email</b>, used to show your name, email and photo in the app. Location stays on your device and is sent only as coordinates to OpenStreetMap, OSRM and Wikipedia to find nearby places and road distances. Closed-shop reports store the place and your account uid in Cloud Firestore, plus, to prevent abuse, when you started using the app, how many reports you made in the last 24 hours, and your uid on reported places you viewed. Before a report, the app checks on the phone that you are within 200 m of the place; that GPS position is not uploaded. We do not sell or share your data for advertising. To delete your data, see the <a href="delete-data.html">data deletion instructions</a>.</p>
 </div>
 </main></body></html>

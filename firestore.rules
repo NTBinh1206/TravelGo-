@@ -5,12 +5,54 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ---------------------------------------------------------------------------------------------
+    // Hồ sơ chống phá: users/{uid}
+    //   createdAt     lần đầu dùng TravelGo (giờ máy chủ, không sửa được)
+    //   windowStart   đầu khung 24 giờ hiện tại
+    //   actions       số lần báo / xác nhận quán trong khung (tối đa 5)
+    //   lastActionAt  lần báo / xác nhận gần nhất (giờ máy chủ)
+    // ---------------------------------------------------------------------------------------------
+    match /users/{uid} {
+      function isMe() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+
+      allow read: if isMe();
+
+      // Tạo hồ sơ: giờ tạo phải là giờ máy chủ, chưa dùng lượt nào.
+      allow create: if isMe()
+        && request.resource.data.keys().hasOnly(['createdAt', 'windowStart', 'actions'])
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.windowStart == request.time
+        && request.resource.data.actions == 0;
+
+      // Mỗi lần báo / xác nhận: tăng đúng 1 lượt, tối đa 5 lượt trong 24 giờ; quá 24 giờ thì mở khung mới.
+      allow update: if isMe()
+        && request.resource.data.keys().hasOnly(['createdAt', 'windowStart', 'actions', 'lastActionAt'])
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.lastActionAt == request.time
+        && (
+             (request.time < resource.data.windowStart + duration.value(24, 'h')
+               && request.resource.data.windowStart == resource.data.windowStart
+               && request.resource.data.actions == resource.data.actions + 1
+               && request.resource.data.actions <= 5)
+          || (request.time >= resource.data.windowStart + duration.value(24, 'h')
+               && request.resource.data.windowStart == request.time
+               && request.resource.data.actions == 1)
+           );
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // Báo "quán đã đóng cửa": closed_reports/{id quán}
     //   name, lat, lng      tên và toạ độ quán
     //   reporters           uid TÀI KHOẢN THẬT (Google, Facebook) đã báo đóng cửa
     //   guests              uid tài khoản Khách (ẩn danh) đã báo; không tính vào ngưỡng gắn nhãn
     //   openers             uid đã bấm "Quán vẫn mở cửa"
+    //   viewers             uid tài khoản thật đã mở xem quán sau khi quán bị báo
     //   updatedAt           lần ghi gần nhất (giờ máy chủ)
+    // ---------------------------------------------------------------------------------------------
     match /closed_reports/{placeId} {
 
       // Giá trị cũ của một danh sách; tài liệu tạo trước khi có trường này thì coi là danh sách rỗng.
@@ -18,13 +60,22 @@ service cloud.firestore {
         return resource.data.get(field, []);
       }
 
+      function newOf(field) {
+        return request.resource.data.get(field, []);
+      }
+
+      // Các danh sách khác giữ nguyên.
+      function same(field) {
+        return newOf(field) == old(field);
+      }
+
       // Danh sách mới = danh sách cũ + đúng uid của mình, mỗi người một lần, không xoá tên người khác.
-      function grewByMe(newList, oldList) {
-        return newList.hasAll(oldList)
-            && newList.size() == oldList.size() + 1
-            && request.auth.uid in newList
-            && !(request.auth.uid in oldList)
-            && newList.size() <= 500;
+      function grewByMe(field) {
+        return newOf(field).hasAll(old(field))
+            && newOf(field).size() == old(field).size() + 1
+            && request.auth.uid in newOf(field)
+            && !(request.auth.uid in old(field))
+            && newOf(field).size() <= 500;
       }
 
       // Đăng nhập Khách (ẩn danh)?
@@ -32,19 +83,36 @@ service cloud.firestore {
         return request.auth.token.firebase.sign_in_provider == 'anonymous';
       }
 
+      function profilePath() {
+        return /databases/$(database)/documents/users/$(request.auth.uid);
+      }
+
+      // Tài khoản thật phải dùng TravelGo đủ 1 ngày (tính từ lúc tạo hồ sơ, giờ máy chủ).
+      function oldEnough() {
+        return get(profilePath()).data.createdAt <= request.time - duration.value(24, 'h');
+      }
+
+      // Cùng lần ghi này, hồ sơ phải được trừ một lượt (luật users/{uid} ở trên giới hạn 5 lượt / 24 giờ).
+      function spentOneAction() {
+        return getAfter(profilePath()).data.get('lastActionAt', null) == request.time;
+      }
+
       // Người đã đăng nhập (kể cả khách ẩn danh) mới được đọc.
       allow read: if request.auth != null;
 
       // Người đầu tiên báo: chỉ được ghi đúng các trường này; mình nằm đúng danh sách theo loại tài khoản.
       allow create: if request.auth != null
-        && request.resource.data.keys().hasOnly(['name', 'lat', 'lng', 'reporters', 'guests', 'openers', 'updatedAt'])
+        && spentOneAction()
+        && request.resource.data.keys().hasOnly(['name', 'lat', 'lng', 'reporters', 'guests', 'openers', 'viewers', 'updatedAt'])
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 200
         && request.resource.data.lat is number
         && request.resource.data.lng is number
-        && request.resource.data.openers == []
+        && newOf('openers') == []
+        && newOf('viewers') == []
         && (
              (!isGuest()
+               && oldEnough()
                && request.resource.data.reporters == [request.auth.uid]
                && request.resource.data.guests == [])
           || (isGuest()
@@ -53,25 +121,28 @@ service cloud.firestore {
            )
         && request.resource.data.updatedAt == request.time;
 
-      // Người sau: chỉ được thêm đúng uid của mình vào MỘT danh sách, hai danh sách kia giữ nguyên.
-      // Tài khoản thật báo vào reporters, Khách báo vào guests; "Quán vẫn mở cửa" (openers) chỉ tài khoản thật.
+      // Người sau báo / xác nhận: chỉ thêm đúng uid của mình vào MỘT danh sách, các danh sách khác giữ nguyên,
+      // và phải trừ lượt trong hồ sơ. Tài khoản thật báo vào reporters, Khách báo vào guests;
+      // "Quán vẫn mở cửa" (openers) chỉ tài khoản thật.
       allow update: if request.auth != null
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reporters', 'guests', 'openers', 'updatedAt'])
         && request.resource.data.updatedAt == request.time
+        && spentOneAction()
+        && same('viewers')
         && (
-             (!isGuest()
-               && grewByMe(request.resource.data.get('reporters', []), old('reporters'))
-               && request.resource.data.get('guests', []) == old('guests')
-               && request.resource.data.get('openers', []) == old('openers'))
+             (!isGuest() && oldEnough()
+               && grewByMe('reporters') && same('guests') && same('openers'))
           || (isGuest()
-               && grewByMe(request.resource.data.get('guests', []), old('guests'))
-               && request.resource.data.get('reporters', []) == old('reporters')
-               && request.resource.data.get('openers', []) == old('openers'))
-          || (!isGuest()
-               && grewByMe(request.resource.data.get('openers', []), old('openers'))
-               && request.resource.data.get('reporters', []) == old('reporters')
-               && request.resource.data.get('guests', []) == old('guests'))
+               && grewByMe('guests') && same('reporters') && same('openers'))
+          || (!isGuest() && oldEnough()
+               && grewByMe('openers') && same('reporters') && same('guests'))
            );
+
+      // Ghi lượt xem: tài khoản thật thêm uid của mình vào viewers, không đụng gì khác, không trừ lượt.
+      allow update: if request.auth != null
+        && !isGuest()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewers'])
+        && grewByMe('viewers');
 
       // Không ai xoá được từ app; quản trị viên xoá trên Firebase Console nếu cần dọn dữ liệu.
       allow delete: if false;

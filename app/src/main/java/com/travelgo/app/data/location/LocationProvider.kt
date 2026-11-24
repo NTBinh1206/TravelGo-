@@ -27,7 +27,16 @@ interface LocationProvider {
 
     /** Lấy vị trí GPS hiện tại. Chỉ gọi khi đã có quyền. */
     suspend fun refreshFromGps(): Result<GeoPoint>
+
+    /**
+     * Đọc GPS ngay lúc này mà KHÔNG đổi vị trí đã lưu (người dùng có thể đang xem một tỉnh khác).
+     * Dùng để kiểm tra người dùng có thật sự đứng gần quán trước khi báo quán đóng cửa.
+     */
+    suspend fun freshFix(): Result<GpsFix> = Result.failure(LocationUnavailableException())
 }
+
+/** Một lần đọc GPS. [mock] = true khi Android báo đây là vị trí giả (do app giả lập vị trí tạo ra). */
+data class GpsFix(val point: GeoPoint, val mock: Boolean = false)
 
 /** Không lấy được vị trí (GPS tắt, máy ảo chưa đặt vị trí, hết thời gian chờ…). */
 class LocationUnavailableException : Exception("Không lấy được vị trí hiện tại")
@@ -47,4 +56,10 @@ class InMemoryLocationProvider : LocationProvider {
     override fun hasPermission(): Boolean = false
 
     override suspend fun refreshFromGps(): Result<GeoPoint> = Result.failure(LocationUnavailableException())
+
+    /** Kết quả GPS trả về cho [freshFix]; null nghĩa là không lấy được vị trí. */
+    var fix: GpsFix? = null
+
+    override suspend fun freshFix(): Result<GpsFix> =
+        fix?.let { Result.success(it) } ?: Result.failure(LocationUnavailableException())
 }
