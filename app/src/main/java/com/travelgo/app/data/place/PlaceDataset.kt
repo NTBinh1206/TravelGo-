@@ -69,6 +69,9 @@ internal class PlaceDataset(private val context: Context) {
                 if (c.size < 11) return@forEach
                 val lat = c[3].toDoubleOrNull() ?: return@forEach
                 val lng = c[4].toDoubleOrNull() ?: return@forEach
+                val plainName = plain(c[1])
+                // OSM đôi khi gắn nhầm tiệm tóc, công ty... thành điểm du lịch ("Lê Hải Hair Salon" là "hang động").
+                if (NOT_A_SIGHT.containsMatchIn(plainName)) return@forEach
                 out += Entry(
                     id = c[0],
                     name = c[1],
@@ -81,7 +84,7 @@ internal class PlaceDataset(private val context: Context) {
                     imageUrl = c[8],
                     wikipedia = c[9],
                     isTown = c[10] == "1",
-                    plainName = plain(c[1]),
+                    plainName = plainName,
                 )
             }
         }
@@ -91,6 +94,9 @@ internal class PlaceDataset(private val context: Context) {
 
     companion object {
         const val FILE = "places_vn.tsv"
+
+        /** Tên (đã bỏ dấu) chứa các từ này là cửa hàng / công ty, không phải điểm du lịch. Giữ giống tools/build_places_vn.py. */
+        private val NOT_A_SIGHT = Regex("\\b(salon|hair|karaoke|massage|nails?|cong ty|cua hang|nha nghi)\\b")
 
         /** Viết thường, bỏ dấu, "đ" -> "d": "Đà Lạt" -> "da lat". */
         fun plain(s: String): String =
