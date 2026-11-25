@@ -165,7 +165,7 @@ fun ExploreScreen(
                 distanceKm = me.distanceKmTo(place.location),
                 flagged = isFoodPlace && place.id in state.flaggedFood,
                 onClick = { if (isFoodPlace) selectedFood = place else onOpenPlace(place.id) },
-                trailing = { FavoriteButton() },
+                trailing = { FavoriteButton(place = place) },
             )
         }
     }

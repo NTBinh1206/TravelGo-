@@ -165,7 +165,7 @@ fun SearchResultScreen(
                         place = place,
                         distanceKm = me.distanceKmTo(place.location),
                         onClick = { onOpenPlace(place.id) },
-                        trailing = { FavoriteButton(size = 44.dp) },
+                        trailing = { FavoriteButton(place = place, size = 44.dp) },
                     )
                 }
             }

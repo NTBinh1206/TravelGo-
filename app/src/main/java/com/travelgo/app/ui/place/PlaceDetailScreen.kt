@@ -114,7 +114,7 @@ private fun PlaceDetailContent(place: Place, ui: PlaceDetailUiState, onBack: () 
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 BackButton(onBack)
-                FavoriteButton(size = 44.dp, bordered = false)
+                FavoriteButton(place = place, size = 44.dp, bordered = false)
             }
         }
 

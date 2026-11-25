@@ -275,6 +275,7 @@ fun PlaceTileCard(
                 ScoreBadge(place.score, Modifier.align(Alignment.TopStart).padding(10.dp))
             }
             FavoriteButton(
+                place = place,
                 bordered = false,
                 size = 40.dp,
                 modifier = Modifier.align(Alignment.TopEnd).padding(10.dp),
