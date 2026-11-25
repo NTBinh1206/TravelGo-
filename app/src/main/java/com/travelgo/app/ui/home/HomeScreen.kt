@@ -73,6 +73,7 @@ fun HomeScreen(
     onOpenExplore: () -> Unit,
     onOpenNearby: () -> Unit,
     onChangeLocation: () -> Unit,
+    onOpenPlace: (String) -> Unit,
     viewModel: HomeViewModel = viewModel { HomeViewModel() },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -157,7 +158,7 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 items(nearby, key = { it.id }) { place ->
-                    PlaceTileCard(place = place, onClick = { /* TODO(Người 2): mở chi tiết */ })
+                    PlaceTileCard(place = place, onClick = { onOpenPlace(place.id) })
                 }
             }
         }

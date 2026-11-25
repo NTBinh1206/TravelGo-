@@ -25,6 +25,8 @@ import com.travelgo.app.ui.explore.ExploreScreen
 import com.travelgo.app.ui.explore.NearbyScreen
 import com.travelgo.app.ui.explore.SearchResultScreen
 import com.travelgo.app.ui.home.HomeScreen
+import com.travelgo.app.ui.place.PlaceDetailScreen
+import com.travelgo.app.ui.place.PlaceDetailViewModel
 import com.travelgo.app.ui.profile.ProfileScreen
 import com.travelgo.app.ui.route.SmartRouteScreen
 import com.travelgo.app.ui.route.SmartRouteViewModel
@@ -105,12 +107,14 @@ fun TravelGoApp() {
                     onOpenExplore = { navController.navigateToTab(Routes.EXPLORE) },
                     onOpenNearby = { navController.navigate(Routes.NEARBY) { launchSingleTop = true } },
                     onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) { launchSingleTop = true } },
+                    onOpenPlace = { id -> navController.openPlace(id) },
                 )
             }
             composable(Routes.EXPLORE) {
                 ExploreScreen(
                     onOpenSearch = { navController.navigate(Routes.SEARCH) { launchSingleTop = true } },
                     onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) { launchSingleTop = true } },
+                    onOpenPlace = { id -> navController.openPlace(id) },
                 )
             }
             composable(Routes.PROFILE) {
@@ -123,14 +127,27 @@ fun TravelGoApp() {
                 )
             }
             composable(Routes.SEARCH) {
-                SearchResultScreen(onBack = { navController.popBackStack() })
+                SearchResultScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenPlace = { id -> navController.openPlace(id) },
+                )
             }
             composable(Routes.NEARBY) {
                 NearbyScreen(
                     onBack = { navController.popBackStack() },
                     onSmartRoute = { ids -> navController.navigate(Routes.smartRoute(ids)) },
                     onChangeLocation = { navController.navigate(Routes.LOCATION_PICKER) { launchSingleTop = true } },
+                    onOpenPlace = { id -> navController.openPlace(id) },
                 )
+            }
+            composable(
+                route = Routes.PLACE_DETAIL,
+                arguments = listOf(navArgument(Routes.ARG_PLACE_ID) { type = NavType.StringType }),
+            ) { entry ->
+                val id = entry.arguments?.getString(Routes.ARG_PLACE_ID).orEmpty()
+                // ViewModel gắn với màn này: xoay máy hay quay lại từ Google Maps không phải tải lại.
+                val detailViewModel = viewModel(entry) { PlaceDetailViewModel(placeId = id) }
+                PlaceDetailScreen(viewModel = detailViewModel, onBack = { navController.popBackStack() })
             }
             composable(
                 route = Routes.SMART_ROUTE,
@@ -152,6 +169,11 @@ private fun NavHostController.navigateHomeFrom(route: String) {
     navigate(Routes.HOME) {
         popUpTo(route) { inclusive = true }
     }
+}
+
+/** Mở màn Chi tiết địa điểm; bấm hai lần liền không mở chồng hai màn giống nhau. */
+private fun NavHostController.openPlace(placeId: String) {
+    navigate(Routes.placeDetail(placeId)) { launchSingleTop = true }
 }
 
 private fun NavHostController.navigateToTab(route: String) {

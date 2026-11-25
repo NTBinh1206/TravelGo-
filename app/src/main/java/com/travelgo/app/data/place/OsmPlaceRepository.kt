@@ -235,8 +235,19 @@ class OsmPlaceRepository(
         list.forEach { byId[it.id] = it }
     }
 
-    /** Đoạn mô tả từ Wikipedia của một điểm (null nếu chưa có). Dùng cho màn chi tiết sau này. */
-    fun descriptionOf(id: String): String? = wikiCache[id]?.description?.takeIf { it.isNotBlank() }
+    // ---------------- Chi tiết địa điểm ----------------
+
+    override suspend fun getWikiInfo(placeId: String): WikiInfo? {
+        // Đã có đoạn giới thiệu (tải lúc hiện danh sách) thì dùng luôn, không hỏi lại Wikipedia.
+        wikiCache[placeId]?.takeIf { it.description.isNotBlank() }?.let { return it }
+        val tags = dataset.byId(placeId)?.toRaw()?.tags.orEmpty()
+        if (tags.isEmpty()) return wikiCache[placeId]
+        val found = runCatching { WikipediaClient.fetch(mapOf(placeId to tags)) }
+            .onFailure { Log.w(TAG, "Wikipedia lỗi khi mở chi tiết $placeId", it) }
+            .getOrDefault(emptyMap())
+        wikiCache.putAll(found)
+        return found[placeId] ?: wikiCache[placeId]
+    }
 
     // =====================================================================
 

@@ -24,6 +24,12 @@ interface PlaceRepository {
      * Không có điểm đánh giá: dữ liệu OpenStreetMap không cho biết quán nào ngon.
      */
     suspend fun getFoodPlaces(center: GeoPoint): List<Place> = emptyList()
+
+    /**
+     * Ảnh + đoạn giới thiệu từ Wikipedia của một điểm, cho màn Chi tiết địa điểm.
+     * null nếu điểm không có bài Wikipedia, hoặc mất mạng.
+     */
+    suspend fun getWikiInfo(placeId: String): WikiInfo? = null
 }
 
 private fun res(name: String) = "android.resource://com.travelgo.app/drawable/$name"

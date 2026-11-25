@@ -11,10 +11,14 @@ object Routes {
     const val SEARCH = "search"                       // 06 Kết quả tìm kiếm (Người 2)
     const val NEARBY = "nearby"                       // 07 Địa điểm gần bạn (Người 2)
     const val SMART_ROUTE = "smart_route/{placeIds}"  // 08 Lộ trình thông minh (Người 3)
+    const val PLACE_DETAIL = "place/{placeId}"        // Chi tiết địa điểm (Người 2)
 
     const val ARG_PLACE_IDS = "placeIds"
+    const val ARG_PLACE_ID = "placeId"
 
     fun smartRoute(placeIds: List<String>) = "smart_route/${placeIds.joinToString(",")}"
+
+    fun placeDetail(placeId: String) = "place/$placeId"
 
     /** Các màn có thanh tab ở dưới. */
     val tabRoutes = setOf(HOME, EXPLORE, PROFILE)

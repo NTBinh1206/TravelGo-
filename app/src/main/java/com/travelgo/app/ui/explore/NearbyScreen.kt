@@ -50,6 +50,7 @@ fun NearbyScreen(
     onBack: () -> Unit,
     onSmartRoute: (List<String>) -> Unit,
     onChangeLocation: () -> Unit,
+    onOpenPlace: (String) -> Unit,
     viewModel: NearbyViewModel = viewModel { NearbyViewModel() },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -97,7 +98,7 @@ fun NearbyScreen(
                     showPin = false,
                     arrowDistance = true,
                     distanceKm = me.distanceKmTo(place.location),
-                    onClick = { /* TODO(Người 2): mở chi tiết */ },
+                    onClick = { onOpenPlace(place.id) },
                     trailing = {
                         Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = Muted)
                     },

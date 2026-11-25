@@ -78,6 +78,7 @@ private val categories = listOf(
 fun ExploreScreen(
     onOpenSearch: () -> Unit,
     onChangeLocation: () -> Unit,
+    onOpenPlace: (String) -> Unit,
     viewModel: ExploreViewModel = viewModel { ExploreViewModel() },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -163,7 +164,7 @@ fun ExploreScreen(
                 subtitle = if (isFoodPlace) place.tagline else place.address,
                 distanceKm = me.distanceKmTo(place.location),
                 flagged = isFoodPlace && place.id in state.flaggedFood,
-                onClick = { if (isFoodPlace) selectedFood = place /* TODO(Người 2): chi tiết điểm du lịch */ },
+                onClick = { if (isFoodPlace) selectedFood = place else onOpenPlace(place.id) },
                 trailing = { FavoriteButton() },
             )
         }
