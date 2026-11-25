@@ -147,8 +147,8 @@ fun RouteMap(
     }
 }
 
-/** Một máy chủ ô bản đồ miễn phí, không cần khoá API, kèm dòng ghi nguồn bắt buộc. */
-private class TileServer(val source: OnlineTileSourceBase, val attribution: String)
+/** Một máy chủ ô bản đồ miễn phí, không cần khoá API, kèm dòng ghi nguồn bắt buộc. (internal: bản đồ Khám phá dùng chung) */
+internal class TileServer(val source: OnlineTileSourceBase, val attribution: String)
 
 private fun xyz(name: String, maxZoom: Int, vararg urls: String) =
     XYTileSource(name, 0, maxZoom, 256, ".png", arrayOf(*urls))
@@ -185,10 +185,10 @@ private val tileServers = listOf(
 
 /** Máy chủ đã chọn, nhớ lại cho các lần mở bản đồ sau trong cùng lần chạy app. */
 @Volatile
-private var chosenServer: TileServer? = null
+internal var chosenServer: TileServer? = null
 
 /** Tải thử một ô bản đồ vùng Việt Nam (zoom 6) từ từng máy chủ, tối đa 4 giây mỗi máy chủ. */
-private suspend fun pickTileServer(): TileServer = chosenServer ?: withContext(Dispatchers.IO) {
+internal suspend fun pickTileServer(): TileServer = chosenServer ?: withContext(Dispatchers.IO) {
     val probe = MapTileIndex.getTileIndex(6, 50, 29)
     val found = tileServers.firstOrNull { server ->
         runCatching {
@@ -259,7 +259,7 @@ private fun MapView.pointMarker(context: Context, point: OsmPoint, label: String
     }
 
 /** Vòng tròn màu viền trắng có chữ/số ở giữa, giống thiết kế Figma. */
-private fun circleIcon(context: Context, label: String, color: Color, sizeDp: Int): BitmapDrawable {
+internal fun circleIcon(context: Context, label: String, color: Color, sizeDp: Int): BitmapDrawable {
     val density = context.resources.displayMetrics.density
     val size = (sizeDp * density).toInt()
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)

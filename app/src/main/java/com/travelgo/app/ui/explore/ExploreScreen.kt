@@ -6,8 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,7 +19,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.Explore
@@ -32,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,8 +77,10 @@ private val categories = listOf(
     Category(FOOD_GROUP, "Ăn uống", Icons.Outlined.Restaurant),
 )
 
-/** 04 · Khám phá (Người 2). Lọc/sắp xếp nằm trong [ExploreViewModel], màn hình chỉ hiển thị. */
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * 04 · Khám phá (Người 2). Lọc/sắp xếp nằm trong [ExploreViewModel], màn hình chỉ hiển thị.
+ * Nút "Bản đồ" ở góc trên chuyển giữa danh sách và bản đồ các điểm đang lọc ([PlacesMap]).
+ */
 @Composable
 fun ExploreScreen(
     onOpenSearch: () -> Unit,
@@ -84,89 +91,81 @@ fun ExploreScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val me = state.me
     val category = state.category
-    val sort = state.sort
     val shown = state.places.dataOrNull.orEmpty()
     var selectedFood by remember { mutableStateOf<Place?>(null) }
+    var showMap by rememberSaveable { mutableStateOf(false) }
+    // Bấm thẻ: quán ăn mở bảng quán (của Bình), điểm du lịch mở màn Chi tiết.
+    val openPlace: (Place) -> Unit = { place ->
+        if (FoodPlaces.isFood(place.category)) selectedFood = place else onOpenPlace(place.id)
+    }
+    val emptyText = when {
+        state.isFood -> "Chưa tìm thấy quán ăn, quán nước nào trong 2 km quanh bạn trên OpenStreetMap."
+        category != null -> "Không có địa điểm nào thuộc loại này quanh bạn."
+        else -> NO_NEARBY_TEXT
+    }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().statusBarsPadding(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Khám phá", color = Navy, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                SquareIconButton(Icons.Outlined.Map, contentDescription = "Bản đồ", onClick = { /* TODO */ })
-            }
-        }
-        item {
-            SearchBarButton(
-                placeholder = "Tìm địa điểm, thành phố",
-                onClick = onOpenSearch,
-                trailing = { SquareIconButton(Icons.Outlined.Tune, contentDescription = "Bộ lọc", onClick = onOpenSearch, size = 40.dp) },
-            )
-        }
-        item {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                categories.forEach { c ->
-                    PillChip(label = c.label, icon = c.icon, selected = category == c.key, onClick = { viewModel.selectCategory(c.key) })
-                }
-            }
-        }
-        if (state.isFood) {
+    if (showMap) {
+        ExploreMapContent(
+            state = state,
+            viewModel = viewModel,
+            onOpenSearch = onOpenSearch,
+            onShowList = { showMap = false },
+            onOpenPlace = openPlace,
+            emptyText = emptyText,
+            onChangeLocation = onChangeLocation,
+        )
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().statusBarsPadding(),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FoodKind.entries.forEach { kind ->
-                        PillChip(label = kind.label, selected = state.foodKind == kind, onClick = { viewModel.selectFoodKind(kind) })
-                    }
-                }
-            }
-        } else {
-            item { SortBar(sort = sort, onChange = viewModel::selectSort) }
-        }
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                Text(
-                    if (state.isFood) "Ăn uống quanh bạn" else "Địa điểm phổ biến",
-                    color = Navy, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
-                )
-                Text(if (state.isFood) "${shown.size} quán" else "${shown.size} địa điểm", color = Muted, fontSize = 14.sp)
-            }
-        }
-        if (state.isFood && shown.isNotEmpty()) {
-            item {
-                // OSM không có điểm đánh giá: nói rõ để người dùng không hiểu nhầm là quán được xếp hạng.
-                Text(
-                    "Chạm vào quán để xem ảnh, đánh giá trên Google Maps hoặc báo quán đã đóng cửa. Dữ liệu quán từ OpenStreetMap.",
-                    color = Muted, fontSize = 13.sp,
+                ExploreFilters(
+                    state = state,
+                    viewModel = viewModel,
+                    onOpenSearch = onOpenSearch,
+                    mapShown = false,
+                    onToggleMap = { showMap = true },
                 )
             }
-        }
-        item {
-            LoadStatus(
-                state = state.places,
-                onRetry = viewModel::retry,
-                emptyText = when {
-                    state.isFood -> "Chưa tìm thấy quán ăn, quán nước nào trong 2 km quanh bạn trên OpenStreetMap."
-                    category != null -> "Không có địa điểm nào thuộc loại này quanh bạn."
-                    else -> NO_NEARBY_TEXT
-                },
-                emptyAction = { EmptyActionButton("Chọn vị trí khác", onChangeLocation) },
-            )
-        }
-        items(shown, key = { it.id }) { place ->
-            val isFoodPlace = FoodPlaces.isFood(place.category)
-            PlaceRowCard(
-                place = place,
-                subtitle = if (isFoodPlace) place.tagline else place.address,
-                distanceKm = me.distanceKmTo(place.location),
-                flagged = isFoodPlace && place.id in state.flaggedFood,
-                onClick = { if (isFoodPlace) selectedFood = place else onOpenPlace(place.id) },
-                trailing = { FavoriteButton(place = place) },
-            )
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                    Text(
+                        if (state.isFood) "Ăn uống quanh bạn" else "Địa điểm phổ biến",
+                        color = Navy, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
+                    )
+                    Text(if (state.isFood) "${shown.size} quán" else "${shown.size} địa điểm", color = Muted, fontSize = 14.sp)
+                }
+            }
+            if (state.isFood && shown.isNotEmpty()) {
+                item {
+                    // OSM không có điểm đánh giá: nói rõ để người dùng không hiểu nhầm là quán được xếp hạng.
+                    Text(
+                        "Chạm vào quán để xem ảnh, đánh giá trên Google Maps hoặc báo quán đã đóng cửa. Dữ liệu quán từ OpenStreetMap.",
+                        color = Muted, fontSize = 13.sp,
+                    )
+                }
+            }
+            item {
+                LoadStatus(
+                    state = state.places,
+                    onRetry = viewModel::retry,
+                    emptyText = emptyText,
+                    emptyAction = { EmptyActionButton("Chọn vị trí khác", onChangeLocation) },
+                )
+            }
+            items(shown, key = { it.id }) { place ->
+                val isFoodPlace = FoodPlaces.isFood(place.category)
+                PlaceRowCard(
+                    place = place,
+                    subtitle = if (isFoodPlace) place.tagline else place.address,
+                    distanceKm = me.distanceKmTo(place.location),
+                    flagged = isFoodPlace && place.id in state.flaggedFood,
+                    onClick = { openPlace(place) },
+                    trailing = { FavoriteButton(place = place) },
+                )
+            }
         }
     }
 
@@ -175,6 +174,117 @@ fun ExploreScreen(
         distanceKm = selectedFood?.let { me.distanceKmTo(it.location) },
         onDismiss = { selectedFood = null },
     )
+}
+
+/** Tiêu đề + nút Bản đồ/Danh sách, ô tìm kiếm, chip loại, thanh sắp xếp: dùng chung cho chế độ danh sách và bản đồ. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ExploreFilters(
+    state: ExploreUiState,
+    viewModel: ExploreViewModel,
+    onOpenSearch: () -> Unit,
+    mapShown: Boolean,
+    onToggleMap: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Khám phá", color = Navy, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            SquareIconButton(
+                if (mapShown) Icons.AutoMirrored.Outlined.List else Icons.Outlined.Map,
+                contentDescription = if (mapShown) "Xem danh sách" else "Xem bản đồ",
+                onClick = onToggleMap,
+            )
+        }
+        SearchBarButton(
+            placeholder = "Tìm địa điểm, thành phố",
+            onClick = onOpenSearch,
+            trailing = { SquareIconButton(Icons.Outlined.Tune, contentDescription = "Bộ lọc", onClick = onOpenSearch, size = 40.dp) },
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            categories.forEach { c ->
+                PillChip(label = c.label, icon = c.icon, selected = state.category == c.key, onClick = { viewModel.selectCategory(c.key) })
+            }
+        }
+        if (state.isFood) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FoodKind.entries.forEach { kind ->
+                    PillChip(label = kind.label, selected = state.foodKind == kind, onClick = { viewModel.selectFoodKind(kind) })
+                }
+            }
+        } else {
+            SortBar(sort = state.sort, onChange = viewModel::selectSort)
+        }
+    }
+}
+
+/**
+ * Chế độ bản đồ: bộ lọc ở trên, bản đồ chiếm phần còn lại.
+ * Chạm một chấm thì hiện thẻ điểm đó ở đáy bản đồ; chạm thẻ để mở Chi tiết (quán ăn thì mở bảng quán).
+ */
+@Composable
+private fun ExploreMapContent(
+    state: ExploreUiState,
+    viewModel: ExploreViewModel,
+    onOpenSearch: () -> Unit,
+    onShowList: () -> Unit,
+    onOpenPlace: (Place) -> Unit,
+    emptyText: String,
+    onChangeLocation: () -> Unit,
+) {
+    val shown = state.places.dataOrNull.orEmpty()
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    val selected = shown.firstOrNull { it.id == selectedId }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 16.dp),
+    ) {
+        ExploreFilters(state = state, viewModel = viewModel, onOpenSearch = onOpenSearch, mapShown = true, onToggleMap = onShowList)
+        Spacer(Modifier.height(14.dp))
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            PlacesMap(
+                me = state.me,
+                places = shown,
+                selectedId = selected?.id,
+                onSelect = { selectedId = it },
+                modifier = Modifier.matchParentSize(),
+            )
+            if (shown.isEmpty()) {
+                // Đang tải / lỗi / không có điểm: báo ngay trên bản đồ.
+                Box(
+                    Modifier
+                        .align(Alignment.Center)
+                        .padding(16.dp)
+                        .background(Color.White, RoundedCornerShape(16.dp))
+                        .padding(8.dp),
+                ) {
+                    LoadStatus(
+                        state = state.places,
+                        onRetry = viewModel::retry,
+                        emptyText = emptyText,
+                        emptyAction = { EmptyActionButton("Chọn vị trí khác", onChangeLocation) },
+                    )
+                }
+            }
+            if (selected != null) {
+                val isFoodPlace = FoodPlaces.isFood(selected.category)
+                PlaceRowCard(
+                    place = selected,
+                    subtitle = if (isFoodPlace) selected.tagline else selected.address,
+                    distanceKm = state.me.distanceKmTo(selected.location),
+                    flagged = isFoodPlace && selected.id in state.flaggedFood,
+                    onClick = { onOpenPlace(selected) },
+                    trailing = { FavoriteButton(place = selected) },
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(10.dp),
+                )
+            }
+        }
+    }
 }
 
 @Composable
