@@ -68,6 +68,7 @@ import com.travelgo.app.ui.theme.Navy
 @Composable
 fun SearchResultScreen(
     onBack: () -> Unit,
+    onOpenPlace: (String) -> Unit,
     viewModel: SearchViewModel = viewModel { SearchViewModel() },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -151,7 +152,7 @@ fun SearchResultScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 items(results, key = { it.id }) { place ->
-                    PlaceTileCard(place = place, onClick = {}, modifier = Modifier.fillMaxWidth())
+                    PlaceTileCard(place = place, onClick = { onOpenPlace(place.id) }, modifier = Modifier.fillMaxWidth())
                 }
             }
         } else {
@@ -163,8 +164,8 @@ fun SearchResultScreen(
                     PlaceRowCard(
                         place = place,
                         distanceKm = me.distanceKmTo(place.location),
-                        onClick = { /* TODO(Người 2): mở chi tiết */ },
-                        trailing = { FavoriteButton(size = 44.dp) },
+                        onClick = { onOpenPlace(place.id) },
+                        trailing = { FavoriteButton(place = place, size = 44.dp) },
                     )
                 }
             }

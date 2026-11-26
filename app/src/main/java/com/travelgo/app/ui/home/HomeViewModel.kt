@@ -82,4 +82,21 @@ class HomeViewModel(
     fun retry() {
         retry.value++
     }
+
+    /**
+     * Bấm thẻ "Điểm đến nổi bật" (mục 18): đổi vị trí sang thành phố đó, "Gần bạn" và "Ăn uống" tự tải lại.
+     * @return false nếu đang ở sẵn thành phố này (không đổi gì).
+     */
+    fun goToCity(city: Place): Boolean {
+        val here = location.currentLocation.value
+        if (location.placeName.value == city.name && here != null && here.distanceKmTo(city.location) < SAME_CITY_KM) {
+            return false
+        }
+        location.updateLocation(city.location, city.name)
+        return true
+    }
+
+    private companion object {
+        const val SAME_CITY_KM = 2.0
+    }
 }

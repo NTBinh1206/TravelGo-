@@ -1,5 +1,6 @@
 package com.travelgo.app.components
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,9 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,10 +29,15 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.travelgo.app.data.place.Place
+import com.travelgo.app.ui.common.FavoritesViewModel
 import com.travelgo.app.ui.theme.Blue
 import com.travelgo.app.ui.theme.BlueLight
 import com.travelgo.app.ui.theme.Border
@@ -154,10 +157,21 @@ fun PillChip(
     }
 }
 
-/** Nút tim tròn trên card. Bấm để bật/tắt yêu thích (TODO Người 2: lưu theo tài khoản). */
+/**
+ * Nút tim tròn trên card (Người 2): bấm để thả / bỏ tim [place], lưu theo tài khoản trên Firestore.
+ * Mọi nút tim trên cùng một màn dùng chung [FavoritesViewModel], nên các màn luôn hiện cùng một trạng thái.
+ */
 @Composable
-fun FavoriteButton(modifier: Modifier = Modifier, size: Dp = 36.dp, bordered: Boolean = true) {
-    var liked by remember { mutableStateOf(false) }
+fun FavoriteButton(
+    place: Place,
+    modifier: Modifier = Modifier,
+    size: Dp = 36.dp,
+    bordered: Boolean = true,
+    viewModel: FavoritesViewModel = viewModel { FavoritesViewModel() },
+) {
+    val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
+    val liked = place.id in favoriteIds
+    val context = LocalContext.current
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -165,11 +179,13 @@ fun FavoriteButton(modifier: Modifier = Modifier, size: Dp = 36.dp, bordered: Bo
             .then(if (bordered) Modifier.border(1.dp, Border, CircleShape) else Modifier)
             .background(Color.White, CircleShape)
             .clip(CircleShape)
-            .clickable { liked = !liked },
+            .clickable {
+                viewModel.toggle(place) { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() }
+            },
     ) {
         Icon(
             if (liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-            contentDescription = "Yêu thích",
+            contentDescription = if (liked) "Bỏ yêu thích" else "Yêu thích",
             tint = if (bordered) Blue else Navy,
             modifier = Modifier.size(size * 0.55f),
         )

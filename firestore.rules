@@ -42,6 +42,22 @@ service cloud.firestore {
            );
 
       allow delete: if false;
+
+      // -------------------------------------------------------------------------------------------
+      // Địa điểm yêu thích: users/{uid}/favorites/{id địa điểm}
+      //   name      tên địa điểm
+      //   addedAt   lúc thả tim (giờ máy chủ)
+      // Mỗi người chỉ đọc / thả tim / bỏ tim trong danh sách của chính mình.
+      // -------------------------------------------------------------------------------------------
+      match /favorites/{placeId} {
+        allow read, delete: if isMe();
+        allow create, update: if isMe()
+          && placeId.size() <= 100
+          && request.resource.data.keys().hasOnly(['name', 'addedAt'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 200
+          && request.resource.data.addedAt == request.time;
+      }
     }
 
     // ---------------------------------------------------------------------------------------------

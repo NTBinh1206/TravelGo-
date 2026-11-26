@@ -1,5 +1,6 @@
 package com.travelgo.app.ui.home
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -73,6 +75,7 @@ fun HomeScreen(
     onOpenExplore: () -> Unit,
     onOpenNearby: () -> Unit,
     onChangeLocation: () -> Unit,
+    onOpenPlace: (String) -> Unit,
     viewModel: HomeViewModel = viewModel { HomeViewModel() },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -82,6 +85,7 @@ fun HomeScreen(
     val food = state.food.dataOrNull.orEmpty()
     var selectedFood by remember { mutableStateOf<Place?>(null) }
     var showNotifications by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
@@ -134,7 +138,17 @@ fun HomeScreen(
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                items(featured, key = { it.id }) { place -> PlaceTileCard(place = place, onClick = onOpenExplore) }
+                items(featured, key = { it.id }) { place ->
+                    PlaceTileCard(
+                        place = place,
+                        onClick = {
+                            // Mục 18: đổi vị trí sang thành phố này; "Gần bạn", "Ăn uống" tự tải lại theo nơi mới.
+                            val moved = viewModel.goToCity(place)
+                            val text = if (moved) "Đã đổi vị trí sang ${place.name}" else "Bạn đang xem ${place.name}"
+                            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+                        },
+                    )
+                }
             }
         }
         item {
@@ -157,7 +171,7 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 items(nearby, key = { it.id }) { place ->
-                    PlaceTileCard(place = place, onClick = { /* TODO(Người 2): mở chi tiết */ })
+                    PlaceTileCard(place = place, onClick = { onOpenPlace(place.id) })
                 }
             }
         }

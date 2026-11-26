@@ -8,9 +8,13 @@ Cách dùng:  python tools/build_places_vn.py osm_vn.tsv app/src/main/assets/pla
 """
 import csv
 import math
+import re
 import sys
 import unicodedata
 from urllib.parse import quote
+
+
+NOT_A_SIGHT = re.compile(r"\b(salon|hair|karaoke|massage|nails?|cong ty|cua hang|nha nghi)\b")
 
 
 def plain(s: str) -> str:
@@ -126,6 +130,10 @@ def main(src: str, dst: str) -> None:
             bad += 1
             continue
         if not name:
+            bad += 1
+            continue
+        # OSM đôi khi gắn nhầm tiệm tóc, công ty... thành điểm du lịch. Giữ giống NOT_A_SIGHT trong PlaceDataset.kt.
+        if NOT_A_SIGHT.search(plain(name)):
             bad += 1
             continue
         prefix = {"node": "n", "way": "w", "relation": "r"}.get(t.get("@type"))
