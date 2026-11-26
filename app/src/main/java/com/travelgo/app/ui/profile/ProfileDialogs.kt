@@ -57,6 +57,10 @@ val POLICY_SECTIONS = listOf(
         "Vị trí dùng để tìm địa điểm và quán quanh bạn. Vị trí gần nhất chỉ lưu trên máy để mở lại dùng ngay, không lưu lên máy chủ của nhóm. Khi tìm thêm địa điểm, tính quãng đường hoặc lấy ảnh, toạ độ được gửi tới OpenStreetMap (Overpass, Nominatim), OSRM và Wikipedia.",
     "Báo quán đã đóng cửa" to
         "Khi bạn báo, Cloud Firestore lưu mã quán, tên, toạ độ và mã tài khoản (uid) của bạn; không lưu email. Chỉ người đã đăng nhập mới đọc được, và không ai xoá được từ ứng dụng.",
+    "Chống báo sai" to
+        "Để chống một người dùng nhiều tài khoản báo sai, Cloud Firestore lưu thời điểm bạn bắt đầu dùng ứng dụng và số lần báo trong 24 giờ. Trước khi báo, ứng dụng đọc GPS để kiểm tra bạn ở gần quán; toạ độ này không gửi lên máy chủ.",
+    "Yêu thích" to
+        "Địa điểm bạn thả tim được lưu theo tài khoản trên Cloud Firestore (mã và tên địa điểm). Chỉ chính bạn đọc và sửa được; bỏ tim là xoá.",
     "Ghi chú OpenStreetMap" to
         "Chỉ gửi khi bạn tick ô đồng ý. Ghi chú gửi ẩn danh, chỉ gồm tên quán, số người đã báo và đường dẫn tới quán trên OpenStreetMap; ai cũng xem được trên openstreetmap.org.",
     "Google Maps" to
