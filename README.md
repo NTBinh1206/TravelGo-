@@ -8,7 +8,11 @@
 
 - Đăng nhập bằng Google hoặc Khách (ẩn danh); xem thông tin ở màn Cá nhân.
 - Lấy vị trí GPS, đổi ra tên tỉnh; chọn tay 1 trong 34 tỉnh thành nếu từ chối quyền hoặc GPS tắt.
-- Trang chủ, Khám phá, Gần bạn, Tìm kiếm: 2.937 điểm du lịch toàn Việt Nam (OpenStreetMap + Wikipedia), lọc theo loại, tìm không dấu.
+- Trang chủ, Khám phá, Gần bạn, Tìm kiếm: 2.937 điểm du lịch toàn Việt Nam (OpenStreetMap + Wikipedia), lọc theo loại, tìm không dấu. Bấm Điểm đến nổi bật để đổi vị trí sang thành phố đó.
+- Chi tiết địa điểm: ảnh, khoảng cách, thời gian tham quan, giới thiệu Wikipedia, mở Google Maps, chỉ đường.
+- Yêu thích: thả tim lưu theo tài khoản trên Cloud Firestore, đăng nhập máy khác vẫn thấy.
+- Bản đồ ở Khám phá: các điểm đang lọc trên OpenStreetMap, chạm để xem và mở chi tiết.
+- Gần bạn: 20 điểm gần nhất, chọn sẵn 5 điểm, chọn 2 đến 5 điểm để lên lộ trình.
 - Ăn uống quanh bạn: 13.652 quán ăn, quán nước trong bán kính 2 km; chạm quán để mở Google Maps xem ảnh, đánh giá.
 - Báo quán đã đóng cửa (Cloud Firestore): ẩn với người báo; đủ tài khoản Google báo (từ 2, quán nhiều người xem cần tới 5) thì quán được gắn nhãn "Có thể đã đóng cửa"; nút "Quán vẫn mở cửa"; tuỳ chọn gửi ghi chú lên OpenStreetMap.
 - Chống báo sai: phải đứng cách quán dưới 200 m (GPS thật, không nhận vị trí giả), tài khoản dùng app từ 1 ngày, tối đa 5 lần báo hoặc xác nhận trong 24 giờ. Tuổi tài khoản và số lượt do luật Firestore kiểm tra trên máy chủ.
@@ -48,12 +52,12 @@ TravelGo/              Ảnh thiết kế Figma 8 màn hình
 ## Phân công
 
 - Nguyễn Thế Bình: khung ứng dụng, đăng nhập, vị trí, chuyển sang MVVM, ăn uống, báo quán đóng cửa, OSRM.
-- Nguyễn Thị Ngọc Tuyến: dữ liệu địa điểm, Trang chủ, Khám phá, Tìm kiếm, Gần bạn.
+- Nguyễn Thị Ngọc Tuyến: dữ liệu địa điểm, Trang chủ, Khám phá, Tìm kiếm, Gần bạn, Chi tiết địa điểm, Yêu thích, bản đồ Khám phá.
 - Phùng Trung Tín: thuật toán và màn Lộ trình thông minh.
 
 ## Còn hạn chế
 
-- Mới chạy thử trên máy ảo; chưa có màn chi tiết địa điểm, chưa lưu yêu thích.
+- Mới chạy thử trên máy ảo, chưa thử trên điện thoại thật.
 - Đã bỏ đăng nhập Facebook: muốn mở cho mọi người, Meta yêu cầu xác minh doanh nghiệp bằng giấy tờ pháp lý.
 - Một số mạng ở Việt Nam chặn openstreetmap.org, khi đó không gửi được ghi chú OSM (báo cáo trong Firestore vẫn được lưu).
 
